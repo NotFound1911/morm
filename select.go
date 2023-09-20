@@ -17,19 +17,19 @@ func (s *Selector[T]) From(table string) *Selector[T] {
 
 // Build 构建query
 func (s *Selector[T]) Build() (*Query, error) {
-	var sqlByte strings.Builder
-	sqlByte.WriteString("SELECT * FROM ")
+	var sqlBuilder strings.Builder
+	sqlBuilder.WriteString("SELECT * FROM ")
 	if s.table == "" {
 		var t T
-		sqlByte.WriteByte('`')
-		sqlByte.WriteString(reflect.TypeOf(t).Name())
-		sqlByte.WriteByte('`')
+		sqlBuilder.WriteByte('`')
+		sqlBuilder.WriteString(reflect.TypeOf(t).Name())
+		sqlBuilder.WriteByte('`')
 	} else {
-		sqlByte.WriteString(s.table)
+		sqlBuilder.WriteString(s.table)
 	}
-	sqlByte.WriteString(";")
+	sqlBuilder.WriteString(";")
 	return &Query{
-		SQL: sqlByte.String(),
+		SQL: sqlBuilder.String(),
 	}, nil
 }
 
