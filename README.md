@@ -1,2 +1,2 @@
 # morm
-mini orm
+mini orm 框架
