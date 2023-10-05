@@ -53,15 +53,15 @@ func (s *Selector[T]) buildExpression(e Expression) error {
 		return nil
 	}
 	switch exp := e.(type) {
-	case Column: // 列
+	case Column: // 代表是列名，直接拼接列名
 		s.sqlBuilder.WriteByte('`')
 		s.sqlBuilder.WriteString(exp.name)
 		s.sqlBuilder.WriteByte('`')
-	case value:
+	case value: // 代表是列名，直接拼接列名
 		s.sqlBuilder.WriteByte('?')
 		s.args = append(s.args, exp.val)
-	case Predicate:
-		_, lp := exp.left.(Predicate)
+	case Predicate: // 代表查询条件
+		_, lp := exp.left.(Predicate) // 判断是否是查询条件
 		if lp {
 			s.sqlBuilder.WriteByte('(')
 		}

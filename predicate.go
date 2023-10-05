@@ -29,11 +29,11 @@ func exprOf(e any) Expression {
 	}
 }
 
-// Predicate 是一个查询条件，开源通过组合的方式构建复杂的查询条件
+// Predicate 是一个查询条件，通过组合的方式构建复杂的查询条件
 type Predicate struct {
-	left  Expression
-	opt   opt
-	right Expression
+	left  Expression // 左边查询条件
+	opt   opt        // 操作符
+	right Expression // 右边查询条件
 }
 
 var _ Expression = &Predicate{}
@@ -42,6 +42,7 @@ func (Predicate) expr() {
 
 }
 
+// Not Not(查询条件 p)
 func Not(p Predicate) Predicate {
 	return Predicate{
 		opt:   optNOT,
@@ -49,6 +50,7 @@ func Not(p Predicate) Predicate {
 	}
 }
 
+// And (查询条件 p)And(查询条件 r)
 func (p Predicate) And(r Predicate) Predicate {
 	return Predicate{
 		left:  p,
@@ -56,6 +58,8 @@ func (p Predicate) And(r Predicate) Predicate {
 		right: r,
 	}
 }
+
+// Or (查询条件 p)Or(查询条件 r)
 func (p Predicate) Or(r Predicate) Predicate {
 	return Predicate{
 		left:  p,
