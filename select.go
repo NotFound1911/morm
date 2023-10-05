@@ -12,6 +12,7 @@ type Selector[T any] struct {
 	sqlBuilder strings.Builder
 	args       []any
 	where      []Predicate
+	model      *model
 }
 
 func (s *Selector[T]) From(table string) *Selector[T] {
@@ -21,6 +22,14 @@ func (s *Selector[T]) From(table string) *Selector[T] {
 
 // Build 构建query
 func (s *Selector[T]) Build() (*Query, error) {
+	var (
+		t   T
+		err error
+	)
+	s.model, err = parseModel(&t)
+	if err != nil {
+		return nil, err
+	}
 	s.sqlBuilder.WriteString("SELECT * FROM ")
 	if s.table == "" {
 		var t T
