@@ -13,6 +13,7 @@ type Selector[T any] struct {
 	args       []any
 	where      []Predicate
 	model      *model
+	db         *DB
 }
 
 func (s *Selector[T]) From(table string) *Selector[T] {
@@ -26,7 +27,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 		t   T
 		err error
 	)
-	s.model, err = parseModel(&t)
+	s.model, err = s.db.r.get(&t)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +107,8 @@ func (s *Selector[T]) Where(ps ...Predicate) *Selector[T] {
 	return s
 }
 
-func NewSelector[T any]() *Selector[T] {
-	return &Selector[T]{}
+func NewSelector[T any](db *DB) *Selector[T] {
+	return &Selector[T]{
+		db: db,
+	}
 }
