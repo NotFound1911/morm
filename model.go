@@ -1,10 +1,13 @@
 package morm
 
 import (
+	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"unicode"
 )
 
-type model struct {
+type ModelOpt func(model *Model) error
+
+type Model struct {
 	fieldMap  map[string]*field // 字段
 	tableName string            // 表名
 }
@@ -39,4 +42,22 @@ const (
 // TableName 用户实现这个接口来返回自定义的表名
 type TableName interface {
 	TableName() string
+}
+
+func ModelWitTableName(name string) ModelOpt {
+	return func(model *Model) error {
+		model.tableName = name
+		return nil
+	}
+}
+
+func ModelWithColumnName(field string, columnName string) ModelOpt {
+	return func(model *Model) error {
+		fd, ok := model.fieldMap[field]
+		if !ok {
+			return errs.NewErrUnknownField(field)
+		}
+		fd.colName = columnName
+		return nil
+	}
 }

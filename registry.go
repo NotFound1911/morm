@@ -7,27 +7,49 @@ import (
 	"sync"
 )
 
+// Registry 元数据注册中心的抽象
+type Registry interface {
+	// Get 查询元数据
+	Get(val any) (*Model, error)
+	// Register 注册一个模型
+	Register(val any, opts ...ModelOpt) (*Model, error)
+}
+
 // 元数据注册中心
 type registry struct {
 	models sync.Map // sync.Map 解决并发问题
 }
 
-func (r *registry) get(val any) (*model, error) {
+func NewRegistry() Registry {
+	return &registry{}
+}
+func (r *registry) Get(val any) (*Model, error) {
 	typ := reflect.TypeOf(val)
 	m, ok := r.models.Load(typ)
-	if !ok {
-		var err error
-		if m, err = r.parseModel(val); err != nil {
+	if ok {
+		return m.(*Model), nil
+	}
+	return r.Register(val)
+}
+
+func (r *registry) Register(val any, opts ...ModelOpt) (*Model, error) {
+	m, err := r.parseModel(val)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		if err := opt(m); err != nil {
 			return nil, err
 		}
 	}
+	typ := reflect.TypeOf(val)
 	r.models.Store(typ, m)
-	return m.(*model), nil
+	return m, nil
 }
 
 // parseModel 支持从标签中提取自定义设置
 // 标签形式 morm:"key1=value1,key2=value2"
-func (r *registry) parseModel(val any) (*model, error) {
+func (r *registry) parseModel(val any) (*Model, error) {
 	typ := reflect.TypeOf(val)
 	// 只支持一级指针
 	if typ.Kind() != reflect.Ptr || typ.Elem().Kind() != reflect.Struct {
@@ -58,7 +80,7 @@ func (r *registry) parseModel(val any) (*model, error) {
 	if tableName == "" {
 		tableName = underscoreName(typ.Name())
 	}
-	return &model{
+	return &Model{
 		tableName: tableName,
 		fieldMap:  fds,
 	}, nil

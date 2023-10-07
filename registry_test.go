@@ -14,7 +14,7 @@ func TestRegistry_get(t *testing.T) {
 	testCases := []struct {
 		name      string
 		val       any
-		wantModel *model
+		wantModel *Model
 		wantErr   error
 	}{
 		{
@@ -25,7 +25,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "pointer",
 			val:  &TestModel{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "test_model",
 				fieldMap: map[string]*field{
 					"Id": {
@@ -67,7 +67,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "column tag",
 			val:  &ColumnTag{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "column_tag",
 				fieldMap: map[string]*field{
 					"Id": {
@@ -79,7 +79,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "empty column",
 			val:  &EmptyColumn{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "empty_column",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -98,7 +98,7 @@ func TestRegistry_get(t *testing.T) {
 			// 设置了非定义tag 进行忽略
 			name: "ignore tag",
 			val:  &IgnoreTag{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "ignore_tag",
 				fieldMap: map[string]*field{
 					"FirstName": {
@@ -111,7 +111,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "custom table name",
 			val:  &CustomTableName{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "test_custom_table_name",
 				fieldMap: map[string]*field{
 					"Name": {
@@ -123,7 +123,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "custom table name ptr",
 			val:  &CustomTableNamePtr{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "test_custom_table_name_ptr",
 				fieldMap: map[string]*field{
 					"Name": {
@@ -135,7 +135,7 @@ func TestRegistry_get(t *testing.T) {
 		{
 			name: "empty table name",
 			val:  &EmptyTableName{},
-			wantModel: &model{
+			wantModel: &Model{
 				tableName: "empty_table_name",
 				fieldMap: map[string]*field{
 					"Name": {
@@ -148,7 +148,7 @@ func TestRegistry_get(t *testing.T) {
 	r := &registry{}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := r.get(tc.val)
+			m, err := r.Get(tc.val)
 			assert.Equal(t, tc.wantErr, err)
 			if err != nil {
 				return

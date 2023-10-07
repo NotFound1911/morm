@@ -1,6 +1,7 @@
 package morm
 
 import (
+	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -28,6 +29,85 @@ func Test_underscoreName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := underscoreName(tc.srcStr)
 			assert.Equal(t, tc.wantStr, res)
+		})
+	}
+}
+
+func TestModelWithTableName(t *testing.T) {
+	testCases := []struct {
+		name          string
+		val           any
+		opt           ModelOpt
+		wantTableName string
+		wantErr       error
+	}{
+		{
+			name:          "empty string",
+			val:           &TestModel{},
+			opt:           ModelWitTableName(""),
+			wantTableName: "",
+		},
+		{
+			name:          "table name",
+			val:           &TestModel{},
+			opt:           ModelWitTableName("test_model_table_name"),
+			wantTableName: "test_model_table_name",
+		},
+	}
+	r := NewRegistry()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := r.Register(tc.val, tc.opt)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				assert.Equal(t, tc.wantTableName, m.tableName)
+			}
+		})
+	}
+}
+
+func TestModelWithColumnName(t *testing.T) {
+	testCases := []struct {
+		name        string
+		val         any
+		opt         ModelOpt
+		field       string
+		wantColName string
+		wantErr     error
+	}{
+		{
+			name:        "new name",
+			val:         &TestModel{},
+			opt:         ModelWithColumnName("FirstName", "test_first_name"),
+			field:       "FirstName",
+			wantColName: "test_first_name",
+		},
+		{
+			name:        "empty new name",
+			val:         &TestModel{},
+			opt:         ModelWithColumnName("FirstName", ""),
+			field:       "FirstName",
+			wantColName: "",
+		},
+		{
+			// 不存在的字段
+			name:    "invaild field name",
+			val:     &TestModel{},
+			opt:     ModelWithColumnName("FirstNameTest", ""),
+			field:   "FirstNameTest",
+			wantErr: errs.NewErrUnknownField("FirstNameTest"),
+		},
+	}
+	r := NewRegistry()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := r.Register(tc.val, tc.opt)
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			fd := m.fieldMap[tc.field]
+			assert.Equal(t, tc.wantColName, fd.colName)
 		})
 	}
 }
