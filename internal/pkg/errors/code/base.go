@@ -14,4 +14,7 @@ const (
 
 	// ErrUnsupportedExpressionType 返回一个不支持该 expression 错误信息
 	ErrUnsupportedExpressionType
+
+	// ErrInvalidTagContent 错误的标签设置
+	ErrInvalidTagContent
 )

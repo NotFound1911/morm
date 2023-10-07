@@ -30,3 +30,13 @@ func underscoreName(tableName string) string {
 	}
 	return string(buf)
 }
+
+// 支持的tag 标签
+const (
+	tagKeyColumn = "column"
+)
+
+// TableName 用户实现这个接口来返回自定义的表名
+type TableName interface {
+	TableName() string
+}

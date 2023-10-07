@@ -63,6 +63,87 @@ func TestRegistry_get(t *testing.T) {
 			val:     0,
 			wantErr: errs.NewErrPointerOnly(0),
 		},
+		// tag test
+		{
+			name: "column tag",
+			val:  &ColumnTag{},
+			wantModel: &model{
+				tableName: "column_tag",
+				fieldMap: map[string]*field{
+					"Id": {
+						colName: "id",
+					},
+				},
+			},
+		},
+		{
+			name: "empty column",
+			val:  &EmptyColumn{},
+			wantModel: &model{
+				tableName: "empty_column",
+				fieldMap: map[string]*field{
+					"FirstName": {
+						colName: "first_name",
+					},
+				},
+			},
+		},
+		{
+			// 设置了column 但没有赋值
+			name:    "invalid tag",
+			val:     &InvalidTag{},
+			wantErr: errs.NewErrInvalidTagContent("column"),
+		},
+		{
+			// 设置了非定义tag 进行忽略
+			name: "ignore tag",
+			val:  &IgnoreTag{},
+			wantModel: &model{
+				tableName: "ignore_tag",
+				fieldMap: map[string]*field{
+					"FirstName": {
+						colName: "first_name",
+					},
+				},
+			},
+		},
+		// interface test
+		{
+			name: "custom table name",
+			val:  &CustomTableName{},
+			wantModel: &model{
+				tableName: "test_custom_table_name",
+				fieldMap: map[string]*field{
+					"Name": {
+						colName: "name",
+					},
+				},
+			},
+		},
+		{
+			name: "custom table name ptr",
+			val:  &CustomTableNamePtr{},
+			wantModel: &model{
+				tableName: "test_custom_table_name_ptr",
+				fieldMap: map[string]*field{
+					"Name": {
+						colName: "name",
+					},
+				},
+			},
+		},
+		{
+			name: "empty table name",
+			val:  &EmptyTableName{},
+			wantModel: &model{
+				tableName: "empty_table_name",
+				fieldMap: map[string]*field{
+					"Name": {
+						colName: "name",
+					},
+				},
+			},
+		},
 	}
 	r := &registry{}
 	for _, tc := range testCases {
@@ -75,4 +156,43 @@ func TestRegistry_get(t *testing.T) {
 			assert.Equal(t, tc.wantModel, m)
 		})
 	}
+}
+
+type InvalidTag struct {
+	FirstName uint64 `morm:"column"`
+}
+type ColumnTag struct {
+	Id uint64 `morm:"column=id"`
+}
+
+type EmptyColumn struct {
+	FirstName uint64 `morm:"column="`
+}
+
+type IgnoreTag struct {
+	FirstName uint64 `morm:"aaa=bbb"`
+}
+
+type CustomTableName struct {
+	Name string
+}
+
+func (c CustomTableName) TableName() string {
+	return "test_custom_table_name"
+}
+
+type CustomTableNamePtr struct {
+	Name string
+}
+
+func (c *CustomTableNamePtr) TableName() string {
+	return "test_custom_table_name_ptr"
+}
+
+type EmptyTableName struct {
+	Name string
+}
+
+func (c *EmptyTableName) TableName() string {
+	return ""
 }

@@ -34,3 +34,7 @@ func NewErrUnknownField(exp any) error {
 func NewErrUnsupportedExpressionType(exp any) error {
 	return WithCode(code.ErrUnsupportedExpressionType, fmt.Sprintf("morm 不支持表达式:%+v", exp))
 }
+
+func NewErrInvalidTagContent(exp any) error {
+	return WithCode(code.ErrInvalidTagContent, fmt.Sprintf("morm 错误的标签设置:%+v", exp))
+}
