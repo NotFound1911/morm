@@ -70,7 +70,7 @@ func (r *registry) parseModel(val any) (*Model, error) {
 			colName = underscoreName(fdType.Name)
 		}
 		fds[fdType.Name] = &field{
-			colName: underscoreName(fdType.Name),
+			colName: colName,
 		}
 	}
 	var tableName string

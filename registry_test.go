@@ -26,7 +26,7 @@ func TestRegistry_get(t *testing.T) {
 			name: "pointer",
 			val:  &TestModel{},
 			wantModel: &Model{
-				tableName: "test_model",
+				tableName: "TestModel",
 				fieldMap: map[string]*field{
 					"Id": {
 						colName: "id",
@@ -66,19 +66,32 @@ func TestRegistry_get(t *testing.T) {
 		// tag test
 		{
 			name: "column tag",
-			val:  &ColumnTag{},
+			val: func() any {
+				// 我们把测试结构体定义在方法内部，防止被其它用例访问
+				type ColumnTag struct {
+					ID uint64 `morm:"column=id"`
+				}
+				return &ColumnTag{}
+			}(),
 			wantModel: &Model{
 				tableName: "column_tag",
 				fieldMap: map[string]*field{
-					"Id": {
+					"ID": {
 						colName: "id",
 					},
 				},
 			},
 		},
 		{
+			// 如果用户设置了 column，但是传入一个空字符串，那么会用默认的名字
 			name: "empty column",
-			val:  &EmptyColumn{},
+			val: func() any {
+				// 我们把测试结构体定义在方法内部，防止被其它用例访问
+				type EmptyColumn struct {
+					FirstName uint64 `morm:"column="`
+				}
+				return &EmptyColumn{}
+			}(),
 			wantModel: &Model{
 				tableName: "empty_column",
 				fieldMap: map[string]*field{
@@ -89,15 +102,27 @@ func TestRegistry_get(t *testing.T) {
 			},
 		},
 		{
-			// 设置了column 但没有赋值
-			name:    "invalid tag",
-			val:     &InvalidTag{},
+			// 如果用户设置了 column，但是没有赋值
+			name: "invalid tag",
+			val: func() any {
+				// 我们把测试结构体定义在方法内部，防止被其它用例访问
+				type InvalidTag struct {
+					FirstName uint64 `morm:"column"`
+				}
+				return &InvalidTag{}
+			}(),
 			wantErr: errs.NewErrInvalidTagContent("column"),
 		},
 		{
-			// 设置了非定义tag 进行忽略
+			// 如果用户设置了一些奇奇怪怪的内容，这部分内容我们会忽略掉
 			name: "ignore tag",
-			val:  &IgnoreTag{},
+			val: func() any {
+				// 我们把测试结构体定义在方法内部，防止被其它用例访问
+				type IgnoreTag struct {
+					FirstName uint64 `orm:"abc=abc"`
+				}
+				return &IgnoreTag{}
+			}(),
 			wantModel: &Model{
 				tableName: "ignore_tag",
 				fieldMap: map[string]*field{
@@ -156,21 +181,6 @@ func TestRegistry_get(t *testing.T) {
 			assert.Equal(t, tc.wantModel, m)
 		})
 	}
-}
-
-type InvalidTag struct {
-	FirstName uint64 `morm:"column"`
-}
-type ColumnTag struct {
-	Id uint64 `morm:"column=id"`
-}
-
-type EmptyColumn struct {
-	FirstName uint64 `morm:"column="`
-}
-
-type IgnoreTag struct {
-	FirstName uint64 `morm:"aaa=bbb"`
 }
 
 type CustomTableName struct {

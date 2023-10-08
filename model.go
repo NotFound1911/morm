@@ -18,9 +18,9 @@ type field struct {
 }
 
 // underscoreName 驼峰转字符串命名
-func underscoreName(tableName string) string {
+func underscoreName(name string) string {
 	var buf []byte
-	for i, v := range tableName {
+	for i, v := range name {
 		if unicode.IsUpper(v) {
 			if i != 0 {
 				buf = append(buf, '_')
