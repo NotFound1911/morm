@@ -1,4 +1,4 @@
-package morm
+package model
 
 import (
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
@@ -8,13 +8,13 @@ import (
 type ModelOpt func(model *Model) error
 
 type Model struct {
-	fieldMap  map[string]*field // 字段
-	tableName string            // 表名
+	FieldMap  map[string]*field // 字段
+	TableName string            // 表名
 }
 
 // field 字段
 type field struct {
-	colName string
+	ColName string
 }
 
 // underscoreName 驼峰转字符串命名
@@ -46,18 +46,18 @@ type TableName interface {
 
 func ModelWitTableName(name string) ModelOpt {
 	return func(model *Model) error {
-		model.tableName = name
+		model.TableName = name
 		return nil
 	}
 }
 
 func ModelWithColumnName(field string, columnName string) ModelOpt {
 	return func(model *Model) error {
-		fd, ok := model.fieldMap[field]
+		fd, ok := model.FieldMap[field]
 		if !ok {
 			return errs.NewErrUnknownField(field)
 		}
-		fd.colName = columnName
+		fd.ColName = columnName
 		return nil
 	}
 }

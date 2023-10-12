@@ -27,7 +27,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 	s.sqlBuilder.WriteString("SELECT * FROM ")
 	if s.table == "" {
 		s.sqlBuilder.WriteByte('`')
-		s.sqlBuilder.WriteString(s.model.tableName)
+		s.sqlBuilder.WriteString(s.model.TableName)
 		s.sqlBuilder.WriteByte('`')
 	} else {
 		s.sqlBuilder.WriteString(s.table)

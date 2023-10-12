@@ -1,4 +1,4 @@
-package morm
+package model
 
 import (
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
@@ -70,7 +70,7 @@ func (r *registry) parseModel(val any) (*Model, error) {
 			colName = underscoreName(fdType.Name)
 		}
 		fds[fdType.Name] = &field{
-			colName: colName,
+			ColName: colName,
 		}
 	}
 	var tableName string
@@ -81,8 +81,8 @@ func (r *registry) parseModel(val any) (*Model, error) {
 		tableName = underscoreName(typ.Name())
 	}
 	return &Model{
-		tableName: tableName,
-		fieldMap:  fds,
+		TableName: tableName,
+		FieldMap:  fds,
 	}, nil
 }
 func (r *registry) parseTag(tag reflect.StructTag) (map[string]string, error) {

@@ -1,11 +1,22 @@
-package morm
+package model
 
 import (
+	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
+type TestModel struct {
+	Id        int64
+	FirstName string
+	Age       int8
+	LastName  *sql.NullString
+}
+
+func (t TestModel) TableName() string {
+	return "TestModel"
+}
 func Test_underscoreName(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -60,7 +71,7 @@ func TestModelWithTableName(t *testing.T) {
 			m, err := r.Register(tc.val, tc.opt)
 			assert.Equal(t, tc.wantErr, err)
 			if err != nil {
-				assert.Equal(t, tc.wantTableName, m.tableName)
+				assert.Equal(t, tc.wantTableName, m.TableName)
 			}
 		})
 	}
@@ -106,8 +117,8 @@ func TestModelWithColumnName(t *testing.T) {
 			if err != nil {
 				return
 			}
-			fd := m.fieldMap[tc.field]
-			assert.Equal(t, tc.wantColName, fd.colName)
+			fd := m.FieldMap[tc.field]
+			assert.Equal(t, tc.wantColName, fd.ColName)
 		})
 	}
 }
