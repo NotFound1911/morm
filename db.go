@@ -44,3 +44,19 @@ func OpenDB(db *sql.DB, opts ...DBOption) (*DB, error) {
 	}
 	return res, nil
 }
+
+// DBWithRegistry 使用自定义注册中心
+func DBWithRegistry(r model.Registry) DBOption {
+	return func(db *DB) error {
+		db.r = r
+		return nil
+	}
+}
+
+// DBUseReflectValuer 使用基于reflect的方法
+func DBUseReflectValuer() DBOption {
+	return func(db *DB) error {
+		db.valCreator = valuer.NewReflectValue
+		return nil
+	}
+}
