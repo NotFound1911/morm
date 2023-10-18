@@ -1,5 +1,10 @@
 package morm
 
+import (
+	"context"
+	"database/sql"
+)
+
 // Selector 构造select语句
 type Selector[T any] struct {
 	table string
@@ -57,4 +62,43 @@ func NewSelector[T any](db *DB) *Selector[T] {
 			db: db,
 		},
 	}
+}
+
+func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
+	q, err := s.Build()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.builder.db.db.QueryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return nil, err
+	}
+	if !rows.Next() {
+		return nil, sql.ErrNoRows
+	}
+	tmpl := new(T)
+	meta, err := s.db.r.Get(tmpl)
+	if err != nil {
+		return nil, err
+	}
+	val := s.db.valCreator(tmpl, meta)
+	err = val.SetColumns(rows)
+	return tmpl, err
+}
+
+// todo
+func (s *Selector[T]) GetMuti(ctx context.Context) ([]*T, error) {
+	var db sql.DB
+	q, err := s.Build()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		//todo
+	}
+	panic("implement me")
 }

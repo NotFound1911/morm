@@ -27,7 +27,7 @@ func TestDeleter_Build(t *testing.T) {
 			name:    "where",
 			builder: NewDeleter[TestModel](db).Where(C("Id").EQ(16)),
 			wantQuery: &Query{
-				SQL:  "DELETE FROM `TestModel` WHERE `id` = ?;",
+				SQL:  "DELETE FROM `test_model` WHERE `id` = ?;",
 				Args: []any{16},
 			},
 		},

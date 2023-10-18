@@ -1,7 +1,5 @@
 package morm
 
-import "reflect"
-
 type Deleter[T any] struct {
 	builder
 	table string
@@ -19,9 +17,8 @@ func (d *Deleter[T]) Build() (*Query, error) {
 	}
 	d.sqlBuilder.WriteString("DELETE FROM ")
 	if d.table == "" {
-		var t T
 		d.sqlBuilder.WriteByte('`')
-		d.sqlBuilder.WriteString(reflect.TypeOf(t).Name())
+		d.sqlBuilder.WriteString(d.model.TableName)
 		d.sqlBuilder.WriteByte('`')
 	} else {
 		d.sqlBuilder.WriteString(d.table)

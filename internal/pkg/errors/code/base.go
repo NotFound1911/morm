@@ -17,4 +17,7 @@ const (
 
 	// ErrInvalidTagContent 错误的标签设置
 	ErrInvalidTagContent
+
+	// ErrTooManyReturnedColumns 返回列过多
+	ErrTooManyReturnedColumns
 )

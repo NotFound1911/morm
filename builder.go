@@ -3,14 +3,14 @@ package morm
 import (
 	"fmt"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
-	model2 "github.com/NotFound1911/morm/model"
+	model "github.com/NotFound1911/morm/model"
 	"strings"
 )
 
 type builder struct {
 	sqlBuilder strings.Builder
 	args       []any
-	model      *model2.Model
+	model      *model.Model
 	db         *DB
 }
 

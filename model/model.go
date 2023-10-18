@@ -2,19 +2,27 @@ package model
 
 import (
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
+	"reflect"
 	"unicode"
 )
 
-type ModelOpt func(model *Model) error
+type Opt func(model *Model) error
 
 type Model struct {
-	FieldMap  map[string]*field // 字段
+	FieldMap  map[string]*Field // 字段（go）
 	TableName string            // 表名
+	ColumnMap map[string]*Field // 列名（sql）
 }
 
-// field 字段
-type field struct {
+// Field 字段
+type Field struct {
 	ColName string
+	// Offset 相对于对象起始地址的字段偏移量
+	Offset uintptr
+	// Type 类型
+	Type reflect.Type
+	// Go字段名
+	GoName string
 }
 
 // underscoreName 驼峰转字符串命名
@@ -44,14 +52,14 @@ type TableName interface {
 	TableName() string
 }
 
-func ModelWitTableName(name string) ModelOpt {
+func WitTableName(name string) Opt {
 	return func(model *Model) error {
 		model.TableName = name
 		return nil
 	}
 }
 
-func ModelWithColumnName(field string, columnName string) ModelOpt {
+func WithColumnName(field string, columnName string) Opt {
 	return func(model *Model) error {
 		fd, ok := model.FieldMap[field]
 		if !ok {

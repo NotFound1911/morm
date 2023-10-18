@@ -17,7 +17,7 @@ func WithCode(code int, format string, args ...interface{}) error {
 	}
 }
 
-func (w *withCode) Error() string { return fmt.Sprintf("%v", w) }
+func (w *withCode) Error() string { return fmt.Sprintf("%+v", w.err) }
 
 func NewErrUnknown(exp any) error {
 	return WithCode(code.ErrUnknown, fmt.Sprintf("morm 未知错误:%+v", exp))
@@ -37,4 +37,8 @@ func NewErrUnsupportedExpressionType(exp any) error {
 
 func NewErrInvalidTagContent(exp any) error {
 	return WithCode(code.ErrInvalidTagContent, fmt.Sprintf("morm 错误的标签设置:%+v", exp))
+}
+
+func NewErrTooManyReturnedColumns(exp any) error {
+	return WithCode(code.ErrTooManyReturnedColumns, fmt.Sprintf("morm 返回过多的列:%+v", exp))
 }

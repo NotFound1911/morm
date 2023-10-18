@@ -12,7 +12,7 @@ type Registry interface {
 	// Get 查询元数据
 	Get(val any) (*Model, error)
 	// Register 注册一个模型
-	Register(val any, opts ...ModelOpt) (*Model, error)
+	Register(val any, opts ...Opt) (*Model, error)
 }
 
 // 元数据注册中心
@@ -32,7 +32,7 @@ func (r *registry) Get(val any) (*Model, error) {
 	return r.Register(val)
 }
 
-func (r *registry) Register(val any, opts ...ModelOpt) (*Model, error) {
+func (r *registry) Register(val any, opts ...Opt) (*Model, error) {
 	m, err := r.parseModel(val)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,8 @@ func (r *registry) parseModel(val any) (*Model, error) {
 	}
 	typ = typ.Elem()
 	numField := typ.NumField()
-	fds := make(map[string]*field, numField)
+	fdsMap := make(map[string]*Field, numField)
+	colsMap := make(map[string]*Field, numField)
 	for i := 0; i < numField; i++ {
 		fdType := typ.Field(i)
 		// 解析tag
@@ -69,9 +70,14 @@ func (r *registry) parseModel(val any) (*Model, error) {
 		if colName == "" {
 			colName = underscoreName(fdType.Name)
 		}
-		fds[fdType.Name] = &field{
+		f := &Field{
 			ColName: colName,
+			Type:    fdType.Type,
+			GoName:  fdType.Name,
+			Offset:  fdType.Offset,
 		}
+		fdsMap[fdType.Name] = f
+		colsMap[colName] = f
 	}
 	var tableName string
 	if tn, ok := val.(TableName); ok {
@@ -82,7 +88,8 @@ func (r *registry) parseModel(val any) (*Model, error) {
 	}
 	return &Model{
 		TableName: tableName,
-		FieldMap:  fds,
+		FieldMap:  fdsMap,
+		ColumnMap: colsMap,
 	}, nil
 }
 func (r *registry) parseTag(tag reflect.StructTag) (map[string]string, error) {

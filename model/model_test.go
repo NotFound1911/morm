@@ -48,20 +48,20 @@ func TestModelWithTableName(t *testing.T) {
 	testCases := []struct {
 		name          string
 		val           any
-		opt           ModelOpt
+		opt           Opt
 		wantTableName string
 		wantErr       error
 	}{
 		{
 			name:          "empty string",
 			val:           &TestModel{},
-			opt:           ModelWitTableName(""),
+			opt:           WitTableName(""),
 			wantTableName: "",
 		},
 		{
 			name:          "table name",
 			val:           &TestModel{},
-			opt:           ModelWitTableName("test_model_table_name"),
+			opt:           WitTableName("test_model_table_name"),
 			wantTableName: "test_model_table_name",
 		},
 	}
@@ -81,7 +81,7 @@ func TestModelWithColumnName(t *testing.T) {
 	testCases := []struct {
 		name        string
 		val         any
-		opt         ModelOpt
+		opt         Opt
 		field       string
 		wantColName string
 		wantErr     error
@@ -89,22 +89,22 @@ func TestModelWithColumnName(t *testing.T) {
 		{
 			name:        "new name",
 			val:         &TestModel{},
-			opt:         ModelWithColumnName("FirstName", "test_first_name"),
+			opt:         WithColumnName("FirstName", "test_first_name"),
 			field:       "FirstName",
 			wantColName: "test_first_name",
 		},
 		{
 			name:        "empty new name",
 			val:         &TestModel{},
-			opt:         ModelWithColumnName("FirstName", ""),
+			opt:         WithColumnName("FirstName", ""),
 			field:       "FirstName",
 			wantColName: "",
 		},
 		{
 			// 不存在的字段
-			name:    "invaild field name",
+			name:    "invaild Field name",
 			val:     &TestModel{},
-			opt:     ModelWithColumnName("FirstNameTest", ""),
+			opt:     WithColumnName("FirstNameTest", ""),
 			field:   "FirstNameTest",
 			wantErr: errs.NewErrUnknownField("FirstNameTest"),
 		},

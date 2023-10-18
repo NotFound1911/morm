@@ -1,7 +1,11 @@
 package morm
 
 import (
+	"context"
 	"database/sql"
+	"errors"
+	"github.com/DATA-DOG/go-sqlmock"
+	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -14,7 +18,7 @@ type TestModel struct {
 }
 
 func (t TestModel) TableName() string {
-	return "TestModel"
+	return "test_model"
 }
 func TestSelector_Build(t *testing.T) {
 	db, err := NewDB()
@@ -31,7 +35,7 @@ func TestSelector_Build(t *testing.T) {
 			name: "no from",
 			q:    NewSelector[TestModel](db),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `TestModel`;",
+				SQL: "SELECT * FROM `test_model`;",
 			},
 		},
 		{
@@ -45,7 +49,7 @@ func TestSelector_Build(t *testing.T) {
 			name: "empty from",
 			q:    NewSelector[TestModel](db).From(""),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `TestModel`;",
+				SQL: "SELECT * FROM `test_model`;",
 			},
 		},
 		{
@@ -67,7 +71,7 @@ func TestSelector_Build(t *testing.T) {
 			name: "multi predicates",
 			q:    NewSelector[TestModel](db).Where(C("Age").GT(18), C("Age").LT(35)),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `TestModel` WHERE (`age` > ?) AND (`age` < ?);",
+				SQL:  "SELECT * FROM `test_model` WHERE (`age` > ?) AND (`age` < ?);",
 				Args: []any{18, 35},
 			},
 		},
@@ -75,7 +79,7 @@ func TestSelector_Build(t *testing.T) {
 			name: "use and",
 			q:    NewSelector[TestModel](db).Where(C("Age").GT(18).And(C("Age").LT(35))),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `TestModel` WHERE (`age` > ?) AND (`age` < ?);",
+				SQL:  "SELECT * FROM `test_model` WHERE (`age` > ?) AND (`age` < ?);",
 				Args: []any{18, 35},
 			},
 		},
@@ -83,7 +87,7 @@ func TestSelector_Build(t *testing.T) {
 			name: "use or",
 			q:    NewSelector[TestModel](db).Where(C("Age").GT(18).Or(C("Age").LT(35))),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `TestModel` WHERE (`age` > ?) OR (`age` < ?);",
+				SQL:  "SELECT * FROM `test_model` WHERE (`age` > ?) OR (`age` < ?);",
 				Args: []any{18, 35},
 			},
 		},
@@ -91,9 +95,14 @@ func TestSelector_Build(t *testing.T) {
 			name: "use not",
 			q:    NewSelector[TestModel](db).Where(Not(C("Age").GT(18))),
 			wantQuery: &Query{
-				SQL:  "SELECT * FROM `TestModel` WHERE  NOT (`age` > ?);",
+				SQL:  "SELECT * FROM `test_model` WHERE  NOT (`age` > ?);",
 				Args: []any{18},
 			},
+		},
+		{
+			name:    "invalid column",
+			q:       NewSelector[TestModel](db).Where(Not(C("Invalid").GT(18))),
+			wantErr: errs.NewErrUnknownField("Invalid"),
 		},
 	}
 	for _, tc := range testCases {
@@ -104,6 +113,81 @@ func TestSelector_Build(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tc.wantQuery, query)
+		})
+	}
+}
+
+func TestSelector_Get(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = mockDB.Close() }()
+	db, err := OpenDB(mockDB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testCases := []struct {
+		name     string
+		query    string
+		mockErr  error
+		mockRows *sqlmock.Rows
+		wantErr  error
+		wantVal  *TestModel
+	}{
+		{
+			name:    "query error",
+			mockErr: errors.New("invalid error"),
+			wantErr: errors.New("invalid error"),
+			query:   "SELECT .*",
+		},
+		{
+			name:     "no row",
+			wantErr:  sql.ErrNoRows,
+			query:    "SELECT .*",
+			mockRows: sqlmock.NewRows([]string{"id"}),
+		},
+		{
+			name:    "too many column",
+			wantErr: errs.NewErrTooManyReturnedColumns([]string{"id", "first_name", "age", "last_name", "extra_column"}),
+			mockRows: func() *sqlmock.Rows {
+				res := sqlmock.NewRows([]string{"id", "first_name", "age", "last_name", "extra_column"})
+				res.AddRow([]byte("1"), []byte("Da"), []byte("18"), []byte("Ming"), []byte("nothing"))
+				return res
+			}(),
+		},
+		{
+			name:  "get data",
+			query: "SELECT .*",
+			mockRows: func() *sqlmock.Rows {
+				res := sqlmock.NewRows([]string{"id", "first_name", "age", "last_name"})
+				res.AddRow([]byte("1"), []byte("Da"), []byte("18"), []byte("Ming"))
+				return res
+			}(),
+			wantVal: &TestModel{
+				Id:        1,
+				FirstName: "Da",
+				Age:       18,
+				LastName:  &sql.NullString{String: "Ming", Valid: true},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		exp := mock.ExpectQuery(tc.query)
+		if tc.mockErr != nil {
+			exp.WillReturnError(tc.mockErr)
+		} else {
+			exp.WillReturnRows(tc.mockRows)
+		}
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := NewSelector[TestModel](db).Get(context.Background())
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantVal, res)
 		})
 	}
 }

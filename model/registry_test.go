@@ -1,8 +1,10 @@
 package model
 
 import (
+	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"reflect"
 	"testing"
 )
 
@@ -27,18 +29,56 @@ func TestRegistry_get(t *testing.T) {
 			val:  &TestModel{},
 			wantModel: &Model{
 				TableName: "TestModel",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"Id": {
 						ColName: "id",
+						Type:    reflect.TypeOf(int64(0)),
+						GoName:  "Id",
+						Offset:  0,
 					},
 					"FirstName": {
 						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+						Offset:  8,
 					},
 					"Age": {
 						ColName: "age",
+						Type:    reflect.TypeOf(int8(0)),
+						GoName:  "Age",
+						Offset:  24,
 					},
 					"LastName": {
 						ColName: "last_name",
+						Type:    reflect.TypeOf(&sql.NullString{}),
+						GoName:  "LastName",
+						Offset:  32,
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"id": {
+						ColName: "id",
+						Type:    reflect.TypeOf(int64(0)),
+						GoName:  "Id",
+						Offset:  0,
+					},
+					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "FirstName",
+						Offset:  8,
+					},
+					"age": {
+						ColName: "age",
+						Type:    reflect.TypeOf(int8(0)),
+						GoName:  "Age",
+						Offset:  24,
+					},
+					"last_name": {
+						ColName: "last_name",
+						Type:    reflect.TypeOf(&sql.NullString{}),
+						GoName:  "LastName",
+						Offset:  32,
 					},
 				},
 			},
@@ -75,9 +115,18 @@ func TestRegistry_get(t *testing.T) {
 			}(),
 			wantModel: &Model{
 				TableName: "column_tag",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"ID": {
 						ColName: "id",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "ID",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"id": {
+						ColName: "id",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "ID",
 					},
 				},
 			},
@@ -94,9 +143,18 @@ func TestRegistry_get(t *testing.T) {
 			}(),
 			wantModel: &Model{
 				TableName: "empty_column",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"FirstName": {
 						ColName: "first_name",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "FirstName",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "FirstName",
 					},
 				},
 			},
@@ -114,10 +172,9 @@ func TestRegistry_get(t *testing.T) {
 			wantErr: errs.NewErrInvalidTagContent("column"),
 		},
 		{
-			// 如果用户设置了一些奇奇怪怪的内容，这部分内容我们会忽略掉
+			// 如果用户设置了一些不规范的内容，这部分内容会忽略掉
 			name: "ignore tag",
 			val: func() any {
-				// 我们把测试结构体定义在方法内部，防止被其它用例访问
 				type IgnoreTag struct {
 					FirstName uint64 `orm:"abc=abc"`
 				}
@@ -125,9 +182,18 @@ func TestRegistry_get(t *testing.T) {
 			}(),
 			wantModel: &Model{
 				TableName: "ignore_tag",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"FirstName": {
 						ColName: "first_name",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "FirstName",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "FirstName",
 					},
 				},
 			},
@@ -138,9 +204,18 @@ func TestRegistry_get(t *testing.T) {
 			val:  &CustomTableName{},
 			wantModel: &Model{
 				TableName: "test_custom_table_name",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"Name": {
 						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"name": {
+						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
 					},
 				},
 			},
@@ -150,9 +225,18 @@ func TestRegistry_get(t *testing.T) {
 			val:  &CustomTableNamePtr{},
 			wantModel: &Model{
 				TableName: "test_custom_table_name_ptr",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"Name": {
 						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"name": {
+						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
 					},
 				},
 			},
@@ -162,9 +246,18 @@ func TestRegistry_get(t *testing.T) {
 			val:  &EmptyTableName{},
 			wantModel: &Model{
 				TableName: "empty_table_name",
-				FieldMap: map[string]*field{
+				FieldMap: map[string]*Field{
 					"Name": {
 						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
+					},
+				},
+				ColumnMap: map[string]*Field{
+					"name": {
+						ColName: "name",
+						Type:    reflect.TypeOf(""),
+						GoName:  "Name",
 					},
 				},
 			},
