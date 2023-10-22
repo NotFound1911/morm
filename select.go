@@ -86,19 +86,31 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 	return tmpl, err
 }
 
-// todo
-func (s *Selector[T]) GetMuti(ctx context.Context) ([]*T, error) {
-	var db sql.DB
+func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
 	q, err := s.Build()
 	if err != nil {
 		return nil, err
 	}
-	rows, err := db.QueryContext(ctx, q.SQL, q.Args...)
+	rows, err := s.builder.db.db.QueryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return nil, err
+	}
+	tmpls := make([]*T, 0, 0)
+	tmpl := new(T)
+	meta, err := s.db.r.Get(tmpl)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		//todo
+		tmpl := new(T)
+		val := s.db.valCreator(tmpl, meta)
+		if err := val.SetColumns(rows); err != nil {
+			return nil, err
+		}
+		tmpls = append(tmpls, tmpl)
 	}
-	panic("implement me")
+	if len(tmpls) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return tmpls, nil
 }

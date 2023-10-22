@@ -37,6 +37,7 @@ type sqlTestSuite struct {
 	db *sql.DB
 }
 
+// TearDownTest 方法则是在每个测试用例执行完毕后自动调用的方法，用于完成与测试用例相对应的清理工作
 func (s *sqlTestSuite) TearDownTest() {
 	_, err := s.db.Exec("DELETE FROM test_model;")
 	if err != nil {
