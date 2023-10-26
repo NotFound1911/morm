@@ -12,6 +12,9 @@ type builder struct {
 	args       []any
 	model      *model.Model
 	db         *DB
+	where      []Predicate
+	columns    []Selectable
+	table      string
 }
 
 func (b *builder) buildPredicates(ps []Predicate) error {
@@ -70,4 +73,61 @@ func (b *builder) buildExpression(e Expression) error {
 		return fmt.Errorf("orm: not support the expression %v", exp)
 	}
 	return nil
+}
+
+// 构建筛选列
+func (b *builder) buildColumns() error {
+	if len(b.columns) == 0 {
+		b.sqlBuilder.WriteByte('*')
+		return nil
+	}
+	for i, col := range b.columns {
+		if i > 0 {
+			b.sqlBuilder.WriteByte(',')
+		}
+		switch val := col.(type) {
+		case Column: // 列
+			b.sqlBuilder.WriteByte('`')
+			fd, ok := b.model.FieldMap[val.name]
+			if !ok {
+				return errs.NewErrUnknownField(val.name)
+			}
+			b.sqlBuilder.WriteString(fd.ColName)
+			b.sqlBuilder.WriteByte('`')
+			b.buildAs(val.alias)
+		case Aggregate: // 聚合
+			b.sqlBuilder.WriteString(val.fn)
+			b.sqlBuilder.WriteString("(`")
+			fd, ok := b.model.FieldMap[val.arg]
+			if !ok {
+				return errs.NewErrUnknownField(val.arg)
+			}
+			b.sqlBuilder.WriteString(fd.ColName)
+			b.sqlBuilder.WriteString("`)")
+			b.buildAs(val.alias)
+		case Expr: //  表达式
+			b.sqlBuilder.WriteString(val.raw)
+			if len(val.args) != 0 {
+				b.addArgs(val.args...)
+			}
+		}
+	}
+	return nil
+}
+
+// 构建别名
+func (b *builder) buildAs(alias string) {
+	if alias != "" {
+		b.sqlBuilder.WriteString(" AS ")
+		b.sqlBuilder.WriteByte('`')
+		b.sqlBuilder.WriteString(alias)
+		b.sqlBuilder.WriteByte('`')
+	}
+}
+
+func (b *builder) addArgs(args ...any) {
+	if b.args == nil {
+		b.args = make([]any, 0, 8)
+	}
+	b.args = append(b.args, args...)
 }

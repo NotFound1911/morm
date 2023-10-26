@@ -283,3 +283,74 @@ func TestSelector_GetMulti(t *testing.T) {
 		})
 	}
 }
+
+func TestSelector_Select(t *testing.T) {
+	db := memoryDB(t)
+	testCases := []struct {
+		name      string
+		q         QueryBuilder
+		wantQuery *Query
+		wantErr   error
+	}{
+		{
+			name: "all",
+			q:    NewSelector[TestModel](db),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `test_model`;",
+			},
+		},
+		{
+			name:    "invalid column",
+			q:       NewSelector[TestModel](db).Select(Avg("invalid")),
+			wantErr: errs.NewErrUnknownField("invalid"),
+		},
+		{
+			name: "partial columns",
+			q:    NewSelector[TestModel](db).Select(C("Id"), C("FirstName")),
+			wantQuery: &Query{
+				SQL: "SELECT `id`,`first_name` FROM `test_model`;",
+			},
+		},
+		{
+			name: "avg fn",
+			q:    NewSelector[TestModel](db).Select(Avg("Age")),
+			wantQuery: &Query{
+				SQL: "SELECT AVG(`age`) FROM `test_model`;",
+			},
+		},
+		{
+			name: "raw expression",
+			q:    NewSelector[TestModel](db).Select(Raw("COUNT(DISTINCT `first_name`)")),
+			wantQuery: &Query{
+				SQL: "SELECT COUNT(DISTINCT `first_name`) FROM `test_model`;",
+			},
+		},
+		// 别名
+		{
+			name: "alias",
+			q:    NewSelector[TestModel](db).Select(C("Id").As("my_id"), Avg("Age").As("avg_age")),
+			wantQuery: &Query{
+				SQL: "SELECT `id` AS `my_id`,AVG(`age`) AS `avg_age` FROM `test_model`;",
+			},
+		},
+		// where 忽略别名
+		{
+			name: "where ignore alias",
+			q:    NewSelector[TestModel](db).Where(C("Id").As("my_id").LT(1001)),
+			wantQuery: &Query{
+				SQL:  "SELECT * FROM `test_model` WHERE `id` < ?;",
+				Args: []any{1001},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			query, err := tc.q.Build()
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantQuery, query)
+		})
+	}
+}

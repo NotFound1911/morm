@@ -2,8 +2,6 @@ package morm
 
 type Deleter[T any] struct {
 	builder
-	table string
-	where []Predicate
 }
 
 func (d *Deleter[T]) Build() (*Query, error) {

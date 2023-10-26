@@ -7,13 +7,13 @@ import (
 
 // Selector 构造select语句
 type Selector[T any] struct {
-	table string
-
 	builder
-
-	where []Predicate
 }
 
+func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
+	s.columns = cols
+	return s
+}
 func (s *Selector[T]) From(table string) *Selector[T] {
 	s.table = table
 	return s
@@ -29,7 +29,11 @@ func (s *Selector[T]) Build() (*Query, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.sqlBuilder.WriteString("SELECT * FROM ")
+	s.sqlBuilder.WriteString("SELECT ")
+	if err = s.buildColumns(); err != nil {
+		return nil, err
+	}
+	s.sqlBuilder.WriteString(" FROM ")
 	if s.table == "" {
 		s.sqlBuilder.WriteByte('`')
 		s.sqlBuilder.WriteString(s.model.TableName)
@@ -113,4 +117,8 @@ func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
 		return nil, sql.ErrNoRows
 	}
 	return tmpls, nil
+}
+
+type Selectable interface {
+	selectable()
 }

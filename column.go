@@ -1,7 +1,18 @@
 package morm
 
 type Column struct {
-	name string
+	name  string
+	alias string
+}
+
+func (c Column) selectable() {
+}
+
+func (c Column) As(alias string) Column {
+	return Column{
+		name:  c.name,
+		alias: alias,
+	}
 }
 
 var _ Expression = &Column{}
