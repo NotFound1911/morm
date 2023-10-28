@@ -42,3 +42,9 @@ func NewErrInvalidTagContent(exp any) error {
 func NewErrTooManyReturnedColumns(exp any) error {
 	return WithCode(code.ErrTooManyReturnedColumns, fmt.Sprintf("morm 返回过多的列:%+v", exp))
 }
+func NewErrInsertZeroRow(...any) error {
+	return WithCode(code.ErrInsertZeroRow, fmt.Sprintf("morm 没有插入数据"))
+}
+func NewErrUnsupportedAssignableType(exp any) error {
+	return WithCode(code.ErrUnsupportedAssignableType, fmt.Sprintf("morm 不支持的 Assignable 表达式 %+v", exp))
+}

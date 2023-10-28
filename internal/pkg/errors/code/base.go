@@ -20,4 +20,10 @@ const (
 
 	// ErrTooManyReturnedColumns 返回列过多
 	ErrTooManyReturnedColumns
+
+	// ErrInsertZeroRow 插入空值
+	ErrInsertZeroRow
+
+	// ErrUnsupportedAssignableType 不支持的 Assignable 表达式
+	ErrUnsupportedAssignableType
 )

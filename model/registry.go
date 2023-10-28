@@ -59,6 +59,7 @@ func (r *registry) parseModel(val any) (*Model, error) {
 	numField := typ.NumField()
 	fdsMap := make(map[string]*Field, numField)
 	colsMap := make(map[string]*Field, numField)
+	fds := make([]*Field, numField)
 	for i := 0; i < numField; i++ {
 		fdType := typ.Field(i)
 		// 解析tag
@@ -75,9 +76,11 @@ func (r *registry) parseModel(val any) (*Model, error) {
 			Type:    fdType.Type,
 			GoName:  fdType.Name,
 			Offset:  fdType.Offset,
+			Index:   i,
 		}
 		fdsMap[fdType.Name] = f
 		colsMap[colName] = f
+		fds[i] = f
 	}
 	var tableName string
 	if tn, ok := val.(TableName); ok {
@@ -90,6 +93,7 @@ func (r *registry) parseModel(val any) (*Model, error) {
 		TableName: tableName,
 		FieldMap:  fdsMap,
 		ColumnMap: colsMap,
+		Fields:    fds,
 	}, nil
 }
 func (r *registry) parseTag(tag reflect.StructTag) (map[string]string, error) {

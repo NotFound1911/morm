@@ -1,7 +1,6 @@
 package model
 
 import (
-	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -13,6 +12,7 @@ func TestRegistry_get(t *testing.T) {
 		val := &TestModel{}
 		return &val
 	}
+	var tm TestModel
 	testCases := []struct {
 		name      string
 		val       any
@@ -30,57 +30,18 @@ func TestRegistry_get(t *testing.T) {
 			wantModel: &Model{
 				TableName: "TestModel",
 				FieldMap: map[string]*Field{
-					"Id": {
-						ColName: "id",
-						Type:    reflect.TypeOf(int64(0)),
-						GoName:  "Id",
-						Offset:  0,
-					},
-					"FirstName": {
-						ColName: "first_name",
-						Type:    reflect.TypeOf(""),
-						GoName:  "FirstName",
-						Offset:  8,
-					},
-					"Age": {
-						ColName: "age",
-						Type:    reflect.TypeOf(int8(0)),
-						GoName:  "Age",
-						Offset:  24,
-					},
-					"LastName": {
-						ColName: "last_name",
-						Type:    reflect.TypeOf(&sql.NullString{}),
-						GoName:  "LastName",
-						Offset:  32,
-					},
+					"Id":        tm.IdField(),
+					"FirstName": tm.FirstNameField(),
+					"Age":       tm.AgeField(),
+					"LastName":  tm.LastNameField(),
 				},
 				ColumnMap: map[string]*Field{
-					"id": {
-						ColName: "id",
-						Type:    reflect.TypeOf(int64(0)),
-						GoName:  "Id",
-						Offset:  0,
-					},
-					"first_name": {
-						ColName: "first_name",
-						Type:    reflect.TypeOf(""),
-						GoName:  "FirstName",
-						Offset:  8,
-					},
-					"age": {
-						ColName: "age",
-						Type:    reflect.TypeOf(int8(0)),
-						GoName:  "Age",
-						Offset:  24,
-					},
-					"last_name": {
-						ColName: "last_name",
-						Type:    reflect.TypeOf(&sql.NullString{}),
-						GoName:  "LastName",
-						Offset:  32,
-					},
+					"id":         tm.IdField(),
+					"first_name": tm.FirstNameField(),
+					"age":        tm.AgeField(),
+					"last_name":  tm.LastNameField(),
 				},
+				Fields: []*Field{tm.IdField(), tm.FirstNameField(), tm.AgeField(), tm.LastNameField()},
 			},
 		},
 		{
@@ -129,6 +90,13 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "ID",
 					},
 				},
+				Fields: []*Field{
+					{
+						ColName: "id",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "ID",
+					},
+				},
 			},
 		},
 		{
@@ -152,6 +120,13 @@ func TestRegistry_get(t *testing.T) {
 				},
 				ColumnMap: map[string]*Field{
 					"first_name": {
+						ColName: "first_name",
+						Type:    reflect.TypeOf(uint64(0)),
+						GoName:  "FirstName",
+					},
+				},
+				Fields: []*Field{
+					{
 						ColName: "first_name",
 						Type:    reflect.TypeOf(uint64(0)),
 						GoName:  "FirstName",
@@ -196,6 +171,11 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "FirstName",
 					},
 				},
+				Fields: []*Field{{
+					ColName: "first_name",
+					Type:    reflect.TypeOf(uint64(0)),
+					GoName:  "FirstName",
+				}},
 			},
 		},
 		// interface test
@@ -218,6 +198,11 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "Name",
 					},
 				},
+				Fields: []*Field{{
+					ColName: "name",
+					GoName:  "Name",
+					Type:    reflect.TypeOf(""),
+				}},
 			},
 		},
 		{
@@ -239,6 +224,11 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "Name",
 					},
 				},
+				Fields: []*Field{{
+					ColName: "name",
+					GoName:  "Name",
+					Type:    reflect.TypeOf(""),
+				}},
 			},
 		},
 		{
@@ -260,6 +250,11 @@ func TestRegistry_get(t *testing.T) {
 						GoName:  "Name",
 					},
 				},
+				Fields: []*Field{{
+					ColName: "name",
+					GoName:  "Name",
+					Type:    reflect.TypeOf(""),
+				}},
 			},
 		},
 	}

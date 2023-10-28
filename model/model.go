@@ -12,6 +12,7 @@ type Model struct {
 	FieldMap  map[string]*Field // 字段（go）
 	TableName string            // 表名
 	ColumnMap map[string]*Field // 列名（sql）
+	Fields    []*Field
 }
 
 // Field 字段
@@ -23,6 +24,7 @@ type Field struct {
 	Type reflect.Type
 	// Go字段名
 	GoName string
+	Index  int
 }
 
 // underscoreName 驼峰转字符串命名
