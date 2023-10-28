@@ -33,13 +33,7 @@ func (b *builder) buildExpression(e Expression) error {
 	}
 	switch exp := e.(type) {
 	case Column: // 代表是列名，直接拼接列名
-		fd, ok := b.model.FieldMap[exp.name]
-		if !ok {
-			return errs.NewErrUnknownField(exp.name)
-		}
-		b.sqlBuilder.WriteByte('`')
-		b.sqlBuilder.WriteString(fd.ColName)
-		b.sqlBuilder.WriteByte('`')
+		return b.buildColumn(exp, false)
 	case value: // 代表是列名，直接拼接列名
 		b.sqlBuilder.WriteByte('?')
 		b.args = append(b.args, exp.val)
@@ -69,6 +63,8 @@ func (b *builder) buildExpression(e Expression) error {
 		if rp {
 			b.sqlBuilder.WriteByte(')')
 		}
+	case Aggregate:
+		return b.buildAggregate(exp, false)
 	default:
 		return fmt.Errorf("orm: not support the expression %v", exp)
 	}
@@ -87,30 +83,50 @@ func (b *builder) buildColumns() error {
 		}
 		switch val := col.(type) {
 		case Column: // 列
-			b.sqlBuilder.WriteByte('`')
-			fd, ok := b.model.FieldMap[val.name]
-			if !ok {
-				return errs.NewErrUnknownField(val.name)
+			if err := b.buildColumn(val, true); err != nil {
+				return err
 			}
-			b.sqlBuilder.WriteString(fd.ColName)
-			b.sqlBuilder.WriteByte('`')
-			b.buildAs(val.alias)
 		case Aggregate: // 聚合
-			b.sqlBuilder.WriteString(val.fn)
-			b.sqlBuilder.WriteString("(`")
-			fd, ok := b.model.FieldMap[val.arg]
-			if !ok {
-				return errs.NewErrUnknownField(val.arg)
+			if err := b.buildAggregate(val, true); err != nil {
+				return err
 			}
-			b.sqlBuilder.WriteString(fd.ColName)
-			b.sqlBuilder.WriteString("`)")
-			b.buildAs(val.alias)
 		case Expr: //  表达式
 			b.sqlBuilder.WriteString(val.raw)
 			if len(val.args) != 0 {
 				b.addArgs(val.args...)
 			}
 		}
+	}
+	return nil
+}
+
+// 构建列
+func (b *builder) buildColumn(val Column, useAlias bool) error {
+	b.sqlBuilder.WriteByte('`')
+	fd, ok := b.model.FieldMap[val.name]
+	if !ok {
+		return errs.NewErrUnknownField(val.name)
+	}
+	b.sqlBuilder.WriteString(fd.ColName)
+	b.sqlBuilder.WriteByte('`')
+	if useAlias {
+		b.buildAs(val.alias)
+	}
+	return nil
+}
+
+// 构建聚合
+func (b *builder) buildAggregate(val Aggregate, useAlias bool) error {
+	b.sqlBuilder.WriteString(val.fn)
+	b.sqlBuilder.WriteString("(`")
+	fd, ok := b.model.FieldMap[val.arg]
+	if !ok {
+		return errs.NewErrUnknownField(val.arg)
+	}
+	b.sqlBuilder.WriteString(fd.ColName)
+	b.sqlBuilder.WriteString("`)")
+	if useAlias {
+		b.buildAs(val.alias)
 	}
 	return nil
 }

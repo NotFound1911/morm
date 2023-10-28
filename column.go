@@ -18,9 +18,7 @@ func (c Column) As(alias string) Column {
 
 var _ Expression = &Column{}
 
-func (c Column) expr() {
-
-}
+func (c Column) expr() {}
 
 type value struct {
 	val any
@@ -28,9 +26,7 @@ type value struct {
 
 var _ Expression = &value{}
 
-func (v value) expr() {
-
-}
+func (v value) expr() {}
 
 func valueOf(val any) value {
 	return value{

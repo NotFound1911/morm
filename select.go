@@ -3,11 +3,17 @@ package morm
 import (
 	"context"
 	"database/sql"
+	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 )
 
 // Selector 构造select语句
 type Selector[T any] struct {
 	builder
+	orderBys []OrderBy
+	limit    int
+	offset   int
+	groupBys []Column
+	having   []Predicate
 }
 
 func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
@@ -47,6 +53,40 @@ func (s *Selector[T]) Build() (*Query, error) {
 		if err := s.buildPredicates(s.where); err != nil {
 			return nil, err
 		}
+	}
+	// 构造order by
+	if len(s.orderBys) > 0 {
+		s.sqlBuilder.WriteString(" ORDER BY ")
+		for i, order := range s.orderBys {
+			if i > 0 {
+				s.sqlBuilder.WriteByte(',')
+			}
+			fd, ok := s.model.FieldMap[order.col]
+			if !ok {
+				return nil, errs.NewErrUnknownField(order.col)
+			}
+			s.sqlBuilder.WriteByte('`')
+			s.sqlBuilder.WriteString(fd.ColName)
+			s.sqlBuilder.WriteByte('`')
+			s.sqlBuilder.WriteByte(' ')
+			s.sqlBuilder.WriteString(order.fun)
+		}
+	}
+	if s.limit > 0 {
+		s.sqlBuilder.WriteString(" LIMIT ?")
+		s.args = append(s.args, s.limit)
+	}
+	if s.offset > 0 {
+		s.sqlBuilder.WriteString(" OFFSET ?")
+		s.args = append(s.args, s.offset)
+	}
+	// group by
+	if err = s.buildGroupBy(); err != nil {
+		return nil, err
+	}
+	// having
+	if err = s.buildHaving(); err != nil {
+		return nil, err
 	}
 	s.sqlBuilder.WriteString(";")
 	return &Query{
@@ -121,4 +161,70 @@ func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
 
 type Selectable interface {
 	selectable()
+}
+
+// GroupBy 设置 group by 子句
+func (s *Selector[T]) GroupBy(cols ...Column) *Selector[T] {
+	s.groupBys = cols
+	return s
+}
+func (s *Selector[T]) buildGroupBy() error {
+	if len(s.groupBys) > 0 {
+		s.sqlBuilder.WriteString(" GROUP BY ")
+		for i, group := range s.groupBys {
+			if i > 0 {
+				s.sqlBuilder.WriteByte(',')
+			}
+			if err := s.buildColumn(group, false); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+func (s *Selector[T]) Having(ps ...Predicate) *Selector[T] {
+	s.having = ps
+	return s
+}
+func (s *Selector[T]) buildHaving() error {
+	if len(s.having) > 0 {
+		s.sqlBuilder.WriteString(" HAVING ")
+		if err := s.buildPredicates(s.having); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (s *Selector[T]) Offset(offset int) *Selector[T] {
+	s.offset = offset
+	return s
+}
+
+func (s *Selector[T]) Limit(limit int) *Selector[T] {
+	s.limit = limit
+	return s
+}
+
+func (s *Selector[T]) OrderBy(orderBys ...OrderBy) *Selector[T] {
+	s.orderBys = orderBys
+	return s
+}
+
+type OrderBy struct {
+	col string
+	fun string
+}
+
+func Asc(col string) OrderBy { // 顺序
+	return OrderBy{
+		col: col,
+		fun: "ASC",
+	}
+}
+
+func Desc(col string) OrderBy { // 逆序
+	return OrderBy{
+		col: col,
+		fun: "DESC",
+	}
 }
