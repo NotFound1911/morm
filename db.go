@@ -11,6 +11,7 @@ type DB struct {
 	r          model.Registry
 	db         *sql.DB
 	valCreator valuer.Creator
+	dialect    Dialect
 }
 
 func NewDB(opts ...DBOption) (*DB, error) {
@@ -24,6 +25,10 @@ func NewDB(opts ...DBOption) (*DB, error) {
 	}
 	return db, nil
 }
+
+// Open 创建一个 DB 实例。
+// 默认情况下，该 DB 将使用 MySQL 作为方言
+// 如果你使用了其它数据库，可以使用 DBWithDialect 指定
 func Open(driver string, dsn string, opts ...DBOption) (*DB, error) {
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
@@ -31,11 +36,13 @@ func Open(driver string, dsn string, opts ...DBOption) (*DB, error) {
 	}
 	return OpenDB(db, opts...)
 }
+
 func OpenDB(db *sql.DB, opts ...DBOption) (*DB, error) {
 	res := &DB{
 		r:          model.NewRegistry(),
 		db:         db,
 		valCreator: valuer.NewUnsafeValue,
+		dialect:    MySQL,
 	}
 	for _, opt := range opts {
 		if err := opt(res); err != nil {
@@ -43,6 +50,14 @@ func OpenDB(db *sql.DB, opts ...DBOption) (*DB, error) {
 		}
 	}
 	return res, nil
+}
+
+// DBWithDialect 使用自定义方言
+func DBWithDialect(dialect Dialect) DBOption {
+	return func(db *DB) error {
+		db.dialect = dialect
+		return nil
+	}
 }
 
 // DBWithRegistry 使用自定义注册中心

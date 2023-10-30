@@ -21,10 +21,7 @@ func (t TestModel) TableName() string {
 	return "test_model"
 }
 func TestSelector_Build(t *testing.T) {
-	db, err := NewDB()
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := memoryDB(t)
 	testCases := []struct {
 		name      string
 		q         QueryBuilder

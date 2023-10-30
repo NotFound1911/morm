@@ -24,11 +24,7 @@ func (d *Deleter[T]) Build() (*Query, error) {
 	// 构造where
 	if len(d.where) > 0 {
 		d.sqlBuilder.WriteString(" WHERE ")
-		p := d.where[0]
-		for i := 1; i < len(d.where); i++ {
-			p = p.And(d.where[i])
-		}
-		if err := d.buildExpression(p); err != nil {
+		if err := d.buildPredicates(d.where); err != nil {
 			return nil, err
 		}
 	}
@@ -53,7 +49,9 @@ func (d *Deleter[T]) Where(ps ...Predicate) *Deleter[T] {
 func NewDeleter[T any](db *DB) *Deleter[T] {
 	return &Deleter[T]{
 		builder: builder{
-			db: db,
+			db:      db,
+			dialect: db.dialect,
+			quoter:  db.dialect.quoter(),
 		},
 	}
 }

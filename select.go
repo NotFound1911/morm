@@ -14,6 +14,7 @@ type Selector[T any] struct {
 	offset   int
 	groupBys []Column
 	having   []Predicate
+	columns  []Selectable
 }
 
 func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
@@ -103,7 +104,9 @@ func (s *Selector[T]) Where(ps ...Predicate) *Selector[T] {
 func NewSelector[T any](db *DB) *Selector[T] {
 	return &Selector[T]{
 		builder: builder{
-			db: db,
+			db:      db,
+			dialect: db.dialect,
+			quoter:  db.dialect.quoter(),
 		},
 	}
 }
@@ -208,6 +211,35 @@ func (s *Selector[T]) Limit(limit int) *Selector[T] {
 func (s *Selector[T]) OrderBy(orderBys ...OrderBy) *Selector[T] {
 	s.orderBys = orderBys
 	return s
+}
+
+// 构建筛选列
+func (s *Selector[T]) buildColumns() error {
+	if len(s.columns) == 0 {
+		s.sqlBuilder.WriteByte('*')
+		return nil
+	}
+	for i, col := range s.columns {
+		if i > 0 {
+			s.sqlBuilder.WriteByte(',')
+		}
+		switch val := col.(type) {
+		case Column: // 列
+			if err := s.buildColumn(val, true); err != nil {
+				return err
+			}
+		case Aggregate: // 聚合
+			if err := s.buildAggregate(val, true); err != nil {
+				return err
+			}
+		case Expr: //  表达式
+			s.sqlBuilder.WriteString(val.raw)
+			if len(val.args) != 0 {
+				s.addArgs(val.args...)
+			}
+		}
+	}
+	return nil
 }
 
 type OrderBy struct {

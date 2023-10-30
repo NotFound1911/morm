@@ -13,10 +13,17 @@ type builder struct {
 	model      *model.Model
 	db         *DB
 	where      []Predicate
-	columns    []Selectable
-	table      string
+
+	table   string
+	quoter  byte
+	dialect Dialect
 }
 
+func (b *builder) quote(name string) {
+	b.sqlBuilder.WriteByte(b.quoter)
+	b.sqlBuilder.WriteString(name)
+	b.sqlBuilder.WriteByte(b.quoter)
+}
 func (b *builder) buildPredicates(ps []Predicate) error {
 	p := ps[0]
 	for i := 1; i < len(ps); i++ {
@@ -71,44 +78,13 @@ func (b *builder) buildExpression(e Expression) error {
 	return nil
 }
 
-// 构建筛选列
-func (b *builder) buildColumns() error {
-	if len(b.columns) == 0 {
-		b.sqlBuilder.WriteByte('*')
-		return nil
-	}
-	for i, col := range b.columns {
-		if i > 0 {
-			b.sqlBuilder.WriteByte(',')
-		}
-		switch val := col.(type) {
-		case Column: // 列
-			if err := b.buildColumn(val, true); err != nil {
-				return err
-			}
-		case Aggregate: // 聚合
-			if err := b.buildAggregate(val, true); err != nil {
-				return err
-			}
-		case Expr: //  表达式
-			b.sqlBuilder.WriteString(val.raw)
-			if len(val.args) != 0 {
-				b.addArgs(val.args...)
-			}
-		}
-	}
-	return nil
-}
-
 // 构建列
 func (b *builder) buildColumn(val Column, useAlias bool) error {
-	b.sqlBuilder.WriteByte('`')
 	fd, ok := b.model.FieldMap[val.name]
 	if !ok {
 		return errs.NewErrUnknownField(val.name)
 	}
-	b.sqlBuilder.WriteString(fd.ColName)
-	b.sqlBuilder.WriteByte('`')
+	b.quote(fd.ColName)
 	if useAlias {
 		b.buildAs(val.alias)
 	}
