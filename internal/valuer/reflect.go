@@ -13,6 +13,14 @@ type reflectValue struct {
 	meta *model.Model
 }
 
+func (r reflectValue) Field(name string) (any, error) {
+	res := r.val.FieldByName(name)
+	if res == (reflect.Value{}) {
+		return nil, errs.NewErrUnknownField(name)
+	}
+	return res.Interface(), nil
+}
+
 var _ Creator = NewReflectValue
 
 // NewReflectValue 返回一个封装好的，基于反射实现的 Value

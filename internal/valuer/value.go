@@ -21,6 +21,8 @@ import (
 
 // Value 是结构体实例在内存中的具体数据表示
 type Value interface {
+	// Field 返回字段对应的值
+	Field(name string) (any, error)
 	// SetColumns 设置列值
 	SetColumns(rows *sql.Rows) error
 }

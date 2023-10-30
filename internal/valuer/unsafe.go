@@ -27,6 +27,16 @@ type unsafeValue struct {
 	meta *model.Model
 }
 
+func (u unsafeValue) Field(name string) (any, error) {
+	fd, ok := u.meta.FieldMap[name]
+	if !ok {
+		return nil, errs.NewErrUnknownField(name)
+	}
+	ptr := unsafe.Pointer(uintptr(u.addr) + fd.Offset)
+	val := reflect.NewAt(fd.Type, ptr).Elem()
+	return val.Interface(), nil
+}
+
 var _ Creator = NewUnsafeValue
 
 func NewUnsafeValue(val interface{}, meta *model.Model) Value {

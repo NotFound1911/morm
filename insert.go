@@ -1,9 +1,10 @@
 package morm
 
 import (
+	"context"
+	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/NotFound1911/morm/model"
-	"reflect"
 )
 
 type UpsertBuilder[T any] struct {
@@ -109,15 +110,18 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		if vIdx > 0 {
 			i.sqlBuilder.WriteByte(',')
 		}
-		refVal := reflect.ValueOf(val).Elem()
+		refVal := i.db.valCreator(val, i.model)
 		i.sqlBuilder.WriteByte('(')
 		for fIdx, field := range fields { // 第二层便利字段
 			if fIdx > 0 {
 				i.sqlBuilder.WriteByte(',')
 			}
 			i.sqlBuilder.WriteByte('?')
-			fdVal := refVal.Field(field.Index)
-			i.addArgs(fdVal.Interface())
+			fdVal, err := refVal.Field(field.GoName)
+			if err != nil {
+				return nil, err
+			}
+			i.addArgs(fdVal)
 		}
 		i.sqlBuilder.WriteByte(')')
 	}
@@ -159,4 +163,13 @@ func (i *Inserter[T]) buildAssignment(a Assignable) error {
 		return errs.NewErrUnsupportedAssignableType(a)
 	}
 	return nil
+}
+
+func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
+	q, err := i.Build()
+	if err != nil {
+		return Result{err: err}
+	}
+	res, err := i.db.db.ExecContext(ctx, q.SQL, q.Args...)
+	return Result{err: err, res: res}
 }
