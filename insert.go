@@ -1,44 +1,59 @@
 package morm
 
 import (
+	"context"
+	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/NotFound1911/morm/model"
-	"reflect"
 )
 
-type OnDuplicateKeyBuilder[T any] struct {
-	i *Inserter[T]
+type UpsertBuilder[T any] struct {
+	i               *Inserter[T]
+	conflictColumns []Column
 }
 
-type OnDuplicateKey struct {
-	assigns []Assignable
+type Upsert struct {
+	conflictColumns []Column
+	assigns         []Assignable
 }
 
-func (o *OnDuplicateKeyBuilder[T]) Update(assigns ...Assignable) *Inserter[T] {
-	o.i.onDuplicate = &OnDuplicateKey{
-		assigns: assigns,
+func (u *UpsertBuilder[T]) ConflictColumns(cols ...string) *UpsertBuilder[T] {
+	u.conflictColumns = make([]Column, len(cols))
+	for i, col := range cols {
+		u.conflictColumns[i] = Column{
+			name: col,
+		}
 	}
-	return o.i
+	return u
+}
+func (u *UpsertBuilder[T]) Update(assigns ...Assignable) *Inserter[T] {
+	u.i.onDuplicate = &Upsert{
+		conflictColumns: u.conflictColumns,
+		assigns:         assigns,
+	}
+	return u.i
 }
 
 type Inserter[T any] struct {
 	builder
 	values      []*T     // 插入值
 	columns     []string // 指定列
-	onDuplicate *OnDuplicateKey
+	onDuplicate *Upsert
 }
 
 // OnDuplicateKey  返回OnDuplicateKey构造部分
 // 整体为 Inserter构造 --> OnDuplicateKey构造冲突部分 --> Inserter构造剩余部分
-func (i *Inserter[T]) OnDuplicateKey() *OnDuplicateKeyBuilder[T] {
-	return &OnDuplicateKeyBuilder[T]{
+func (i *Inserter[T]) OnDuplicateKey() *UpsertBuilder[T] {
+	return &UpsertBuilder[T]{
 		i: i,
 	}
 }
 func NewInserter[T any](db *DB) *Inserter[T] {
 	return &Inserter[T]{
 		builder: builder{
-			db: db,
+			db:      db,
+			dialect: db.dialect,
+			quoter:  db.dialect.quoter(),
 		},
 	}
 }
@@ -95,28 +110,25 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		if vIdx > 0 {
 			i.sqlBuilder.WriteByte(',')
 		}
-		refVal := reflect.ValueOf(val).Elem()
+		refVal := i.db.valCreator(val, i.model)
 		i.sqlBuilder.WriteByte('(')
 		for fIdx, field := range fields { // 第二层便利字段
 			if fIdx > 0 {
 				i.sqlBuilder.WriteByte(',')
 			}
 			i.sqlBuilder.WriteByte('?')
-			fdVal := refVal.Field(field.Index)
-			i.addArgs(fdVal.Interface())
+			fdVal, err := refVal.Field(field.GoName)
+			if err != nil {
+				return nil, err
+			}
+			i.addArgs(fdVal)
 		}
 		i.sqlBuilder.WriteByte(')')
 	}
 	// 构造冲突部分
 	if i.onDuplicate != nil {
-		i.sqlBuilder.WriteString(" ON DUPLICATE KEY UPDATE ")
-		for idx, assign := range i.onDuplicate.assigns {
-			if idx > 0 {
-				i.sqlBuilder.WriteByte(',')
-			}
-			if err = i.buildAssignment(assign); err != nil {
-				return nil, err
-			}
+		if err := i.dialect.buildUpsert(&i.builder, i.onDuplicate); err != nil {
+			return nil, err
 		}
 	}
 	i.sqlBuilder.WriteByte(';')
@@ -139,9 +151,9 @@ func (i *Inserter[T]) buildAssignment(a Assignable) error {
 		i.sqlBuilder.WriteString("`)")
 	case Assignment:
 		i.sqlBuilder.WriteByte('`')
-		fd, ok := i.model.FieldMap[assign.column]
+		fd, ok := i.model.FieldMap[assign.name]
 		if !ok {
-			return errs.NewErrUnknownField(assign.column)
+			return errs.NewErrUnknownField(assign.name)
 		}
 		i.sqlBuilder.WriteString(fd.ColName)
 		i.sqlBuilder.WriteByte('`')
@@ -151,4 +163,13 @@ func (i *Inserter[T]) buildAssignment(a Assignable) error {
 		return errs.NewErrUnsupportedAssignableType(a)
 	}
 	return nil
+}
+
+func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
+	q, err := i.Build()
+	if err != nil {
+		return Result{err: err}
+	}
+	res, err := i.db.db.ExecContext(ctx, q.SQL, q.Args...)
+	return Result{err: err, res: res}
 }

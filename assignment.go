@@ -6,8 +6,8 @@ type Assignable interface {
 	assign()
 }
 type Assignment struct {
-	column string
-	val    any
+	Column
+	val any
 }
 
 func (a Assignment) assign() {
@@ -16,7 +16,9 @@ func (a Assignment) assign() {
 
 func Assign(column string, val any) Assignment {
 	return Assignment{
-		column: column,
-		val:    val,
+		Column: Column{
+			name: column,
+		},
+		val: val,
 	}
 }
