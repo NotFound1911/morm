@@ -26,4 +26,13 @@ const (
 
 	// ErrUnsupportedAssignableType 不支持的 Assignable 表达式
 	ErrUnsupportedAssignableType
+
+	// ErrTxFuncFailed 事务执行错误
+	ErrTxFuncFailed
+
+	// ErrTxRollbackFailed 事务回滚错误
+	ErrTxRollbackFailed
+
+	// ErrTxCommitFailed 事务提交错误
+	ErrTxCommitFailed
 )
