@@ -39,6 +39,9 @@ type Inserter[T any] struct {
 	values      []*T     // 插入值
 	columns     []string // 指定列
 	onDuplicate *Upsert
+
+	core
+	sess session
 }
 
 // OnDuplicateKey  返回OnDuplicateKey构造部分
@@ -48,12 +51,14 @@ func (i *Inserter[T]) OnDuplicateKey() *UpsertBuilder[T] {
 		i: i,
 	}
 }
-func NewInserter[T any](db *DB) *Inserter[T] {
+func NewInserter[T any](sess session) *Inserter[T] {
+	c := sess.getCore()
 	return &Inserter[T]{
+		core: c,
+		sess: sess,
 		builder: builder{
-			db:      db,
-			dialect: db.dialect,
-			quoter:  db.dialect.quoter(),
+			dialect: c.dialect,
+			quoter:  c.dialect.quoter(),
 		},
 	}
 }
@@ -76,13 +81,13 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		t   T
 		err error
 	)
-	i.model, err = i.db.r.Get(&t)
+	i.model, err = i.r.Get(&t)
 	if err != nil {
 		return nil, err
 	}
-	i.sqlBuilder.WriteString("INSERT INTO `")
-	i.sqlBuilder.WriteString(i.model.TableName)
-	i.sqlBuilder.WriteString("`(")
+	i.sqlBuilder.WriteString("INSERT INTO ")
+	i.quote(i.model.TableName)
+	i.sqlBuilder.WriteString("(")
 
 	fields := i.model.Fields
 	if len(i.columns) != 0 { // 指定列
@@ -110,7 +115,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 		if vIdx > 0 {
 			i.sqlBuilder.WriteByte(',')
 		}
-		refVal := i.db.valCreator(val, i.model)
+		refVal := i.valCreator(val, i.model)
 		i.sqlBuilder.WriteByte('(')
 		for fIdx, field := range fields { // 第二层便利字段
 			if fIdx > 0 {
@@ -127,7 +132,7 @@ func (i *Inserter[T]) Build() (*Query, error) {
 	}
 	// 构造冲突部分
 	if i.onDuplicate != nil {
-		if err := i.dialect.buildUpsert(&i.builder, i.onDuplicate); err != nil {
+		if err := i.core.dialect.buildUpsert(&i.builder, i.onDuplicate); err != nil {
 			return nil, err
 		}
 	}
@@ -166,10 +171,31 @@ func (i *Inserter[T]) buildAssignment(a Assignable) error {
 }
 
 func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
-	q, err := i.Build()
-	if err != nil {
-		return Result{err: err}
+	var handler HanderFunc = func(ctx context.Context, qc *QueryContext) *QueryResult {
+		q, err := i.Build()
+		if err != nil {
+			return &QueryResult{
+				Err: err,
+			}
+		}
+		res, err := i.sess.execContext(ctx, q.SQL, q.Args...)
+		return &QueryResult{
+			Err:    err,
+			Result: res,
+		}
 	}
-	res, err := i.db.db.ExecContext(ctx, q.SQL, q.Args...)
-	return Result{err: err, res: res}
+	ms := i.ms
+	for i := len(ms) - 1; i >= 0; i-- {
+		handler = ms[i](handler)
+	}
+	qc := &QueryContext{
+		Builder: i,
+		Type:    "INSERT",
+	}
+	qr := handler(ctx, qc)
+	var res sql.Result
+	if qr.Result != nil {
+		res = qr.Result.(sql.Result)
+	}
+	return Result{err: qr.Err, res: res}
 }

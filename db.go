@@ -70,6 +70,14 @@ func DBWithRegistry(r model.Registry) DBOption {
 	}
 }
 
+// DBWithMiddleware 使用中间件
+func DBWithMiddleware(ms ...Middleware) DBOption {
+	return func(db *DB) error {
+		db.ms = ms
+		return nil
+	}
+}
+
 // DBUseReflectValuer 使用基于reflect的方法
 func DBUseReflectValuer() DBOption {
 	return func(db *DB) error {

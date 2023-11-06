@@ -15,6 +15,9 @@ type Selector[T any] struct {
 	groupBys []Column
 	having   []Predicate
 	columns  []Selectable
+
+	core
+	sess session
 }
 
 func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
@@ -32,7 +35,7 @@ func (s *Selector[T]) Build() (*Query, error) {
 		t   T
 		err error
 	)
-	s.model, err = s.db.r.Get(&t)
+	s.model, err = s.r.Get(&t)
 	if err != nil {
 		return nil, err
 	}
@@ -101,65 +104,50 @@ func (s *Selector[T]) Where(ps ...Predicate) *Selector[T] {
 	return s
 }
 
-func NewSelector[T any](db *DB) *Selector[T] {
+func NewSelector[T any](sess session) *Selector[T] {
+	c := sess.getCore()
 	return &Selector[T]{
+		core: c,
+		sess: sess,
 		builder: builder{
-			db:      db,
-			dialect: db.dialect,
-			quoter:  db.dialect.quoter(),
+			dialect: c.dialect,
+			quoter:  c.dialect.quoter(),
 		},
 	}
 }
 
 func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
-	q, err := s.Build()
-	if err != nil {
-		return nil, err
+	var handler HanderFunc = s.getHandler
+	ms := s.ms
+	for i := len(ms) - 1; i >= 0; i-- {
+		handler = ms[i](handler)
 	}
-	rows, err := s.builder.db.db.QueryContext(ctx, q.SQL, q.Args...)
-	if err != nil {
-		return nil, err
+	qc := &QueryContext{
+		Builder: s,
+		Type:    "SELECT",
 	}
-	if !rows.Next() {
-		return nil, sql.ErrNoRows
+	res := handler(ctx, qc)
+	if res.Result != nil {
+		return res.Result.(*T), res.Err
 	}
-	tmpl := new(T)
-	meta, err := s.db.r.Get(tmpl)
-	if err != nil {
-		return nil, err
-	}
-	val := s.db.valCreator(tmpl, meta)
-	err = val.SetColumns(rows)
-	return tmpl, err
+	return nil, res.Err
 }
 
 func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
-	q, err := s.Build()
-	if err != nil {
-		return nil, err
+	var handler HanderFunc = s.getMultiHandler
+	ms := s.ms
+	for i := len(ms) - 1; i >= 0; i-- {
+		handler = ms[i](handler)
 	}
-	rows, err := s.builder.db.db.QueryContext(ctx, q.SQL, q.Args...)
-	if err != nil {
-		return nil, err
+	qc := &QueryContext{
+		Builder: s,
+		Type:    "SELECT",
 	}
-	tmpls := make([]*T, 0, 0)
-	tmpl := new(T)
-	meta, err := s.db.r.Get(tmpl)
-	if err != nil {
-		return nil, err
+	res := handler(ctx, qc)
+	if res.Result != nil {
+		return res.Result.([]*T), res.Err
 	}
-	for rows.Next() {
-		tmpl := new(T)
-		val := s.db.valCreator(tmpl, meta)
-		if err := val.SetColumns(rows); err != nil {
-			return nil, err
-		}
-		tmpls = append(tmpls, tmpl)
-	}
-	if len(tmpls) == 0 {
-		return nil, sql.ErrNoRows
-	}
-	return tmpls, nil
+	return nil, res.Err
 }
 
 type Selectable interface {
@@ -258,5 +246,80 @@ func Desc(col string) OrderBy { // 逆序
 	return OrderBy{
 		col: col,
 		fun: "DESC",
+	}
+}
+
+func (s *Selector[T]) getHandler(ctx context.Context, qc *QueryContext) *QueryResult {
+	q, err := s.Build()
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	rows, err := s.sess.queryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	if !rows.Next() {
+		return &QueryResult{
+			Err: sql.ErrNoRows,
+		}
+	}
+	tmpl := new(T)
+	meta, err := s.r.Get(tmpl)
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	val := s.valCreator(tmpl, meta)
+	err = val.SetColumns(rows)
+	return &QueryResult{
+		Result: tmpl,
+		Err:    err,
+	}
+}
+
+func (s *Selector[T]) getMultiHandler(ctx context.Context, qc *QueryContext) *QueryResult {
+	q, err := s.Build()
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	rows, err := s.sess.queryContext(ctx, q.SQL, q.Args...)
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	tmpls := make([]*T, 0, 0)
+	tmpl := new(T)
+	meta, err := s.r.Get(tmpl)
+	if err != nil {
+		return &QueryResult{
+			Err: err,
+		}
+	}
+	for rows.Next() {
+		tmpl := new(T)
+		val := s.valCreator(tmpl, meta)
+		if err := val.SetColumns(rows); err != nil {
+			return &QueryResult{
+				Err: err,
+			}
+		}
+		tmpls = append(tmpls, tmpl)
+	}
+	if len(tmpls) == 0 {
+		return &QueryResult{
+			Err: sql.ErrNoRows,
+		}
+	}
+	return &QueryResult{
+		Result: tmpls,
+		Err:    err,
 	}
 }
