@@ -11,7 +11,6 @@ type builder struct {
 	sqlBuilder strings.Builder
 	args       []any
 	model      *model.Model
-	db         *DB
 	where      []Predicate
 
 	table   string

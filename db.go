@@ -1,29 +1,29 @@
 package morm
 
 import (
+	"context"
 	"database/sql"
+	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/NotFound1911/morm/internal/valuer"
 	"github.com/NotFound1911/morm/model"
 )
 
 type DBOption func(*DB) error
 type DB struct {
-	r          model.Registry
-	db         *sql.DB
-	valCreator valuer.Creator
-	dialect    Dialect
+	db *sql.DB
+	core
 }
 
-func NewDB(opts ...DBOption) (*DB, error) {
-	db := &DB{
-		r: model.NewRegistry(),
-	}
-	for _, opt := range opts {
-		if err := opt(db); err != nil {
-			return nil, err
-		}
-	}
-	return db, nil
+func (db *DB) getCore() core {
+	return db.core
+}
+
+func (db *DB) queryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return db.db.QueryContext(ctx, query, args...)
+}
+
+func (db *DB) execContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return db.db.ExecContext(ctx, query, args...)
 }
 
 // Open 创建一个 DB 实例。
@@ -39,10 +39,12 @@ func Open(driver string, dsn string, opts ...DBOption) (*DB, error) {
 
 func OpenDB(db *sql.DB, opts ...DBOption) (*DB, error) {
 	res := &DB{
-		r:          model.NewRegistry(),
-		db:         db,
-		valCreator: valuer.NewUnsafeValue,
-		dialect:    MySQL,
+		core: core{
+			dialect:    MySQL,
+			r:          model.NewRegistry(),
+			valCreator: valuer.NewUnsafeValue,
+		},
+		db: db,
 	}
 	for _, opt := range opts {
 		if err := opt(res); err != nil {
@@ -68,10 +70,58 @@ func DBWithRegistry(r model.Registry) DBOption {
 	}
 }
 
+// DBWithMiddleware 使用中间件
+func DBWithMiddleware(ms ...Middleware) DBOption {
+	return func(db *DB) error {
+		db.ms = ms
+		return nil
+	}
+}
+
 // DBUseReflectValuer 使用基于reflect的方法
 func DBUseReflectValuer() DBOption {
 	return func(db *DB) error {
 		db.valCreator = valuer.NewReflectValue
 		return nil
 	}
+}
+
+// BeginTx开启事务
+func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	tx, err := db.db.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{tx: tx, db: db}, nil
+}
+
+func (db *DB) DoTx(ctx context.Context,
+	fn func(ctx context.Context, tx *Tx) error,
+	opts *sql.TxOptions) (err error) { // err 是保留最新的错误
+	tx, err := db.BeginTx(ctx, opts)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if e := recover(); e != nil || err != nil {
+			if e != nil {
+				err = errs.NewErrTxFuncFailed(e)
+			}
+			rE := tx.Rollback()
+			if rE != nil {
+				err = errs.NewErrTxRollbackFailed(rE)
+			}
+		} else {
+			err = tx.Commit()
+			if err != nil {
+				err = errs.NewErrTxCommitFailed(err)
+			}
+		}
+	}()
+	err = fn(ctx, tx)
+	return err
+}
+
+func (db *DB) Close() error {
+	return db.db.Close()
 }

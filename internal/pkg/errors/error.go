@@ -48,3 +48,15 @@ func NewErrInsertZeroRow(...any) error {
 func NewErrUnsupportedAssignableType(exp any) error {
 	return WithCode(code.ErrUnsupportedAssignableType, fmt.Sprintf("morm 不支持的 Assignable 表达式 %+v", exp))
 }
+
+func NewErrTxFuncFailed(exp any) error {
+	return WithCode(code.ErrTxFuncFailed, fmt.Sprintf("morm 事务执行失败:%+v", exp))
+}
+
+func NewErrTxRollbackFailed(exp any) error {
+	return WithCode(code.ErrTxRollbackFailed, fmt.Sprintf("morm 事务回滚失败:%+v", exp))
+}
+
+func NewErrTxCommitFailed(exp any) error {
+	return WithCode(code.ErrTxCommitFailed, fmt.Sprintf("morm 事务提交失败:%+v", exp))
+}
