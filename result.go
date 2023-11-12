@@ -7,6 +7,9 @@ type Result struct {
 	res sql.Result
 }
 
+func (r Result) Err() error {
+	return r.err
+}
 func (r Result) LastInsertId() (int64, error) {
 	if r.err != nil {
 		return 0, r.err

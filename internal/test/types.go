@@ -123,7 +123,7 @@ func (j *JsonColumn) Scan(src any) error {
 }
 
 // Value 参考 sql.NullXXX 类型定义的
-func (j *JsonColumn) Value() (driver.Value, error) {
+func (j JsonColumn) Value() (driver.Value, error) {
 	if !j.Valid {
 		return nil, nil
 	}
@@ -134,9 +134,9 @@ func (j *JsonColumn) Value() (driver.Value, error) {
 	return bs, nil
 }
 
-func NewSimpleStruct() *SimpleStruct {
+func NewSimpleStruct(id uint64) *SimpleStruct {
 	return &SimpleStruct{
-		Id:             1,
+		Id:             id,
 		Bool:           true,
 		BoolPtr:        ekit.ToPtr[bool](false),
 		Int:            12,

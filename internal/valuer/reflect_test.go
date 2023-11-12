@@ -62,7 +62,7 @@ func Test_reflectValueSetColumn(t *testing.T) {
 				"json_column":      []byte(`{"name": "Tom"}`),
 			},
 			val:     &test.SimpleStruct{},
-			wantVal: test.NewSimpleStruct(),
+			wantVal: test.NewSimpleStruct(1),
 		},
 		{
 			name: "invalid field",

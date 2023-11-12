@@ -117,16 +117,10 @@ func NewSelector[T any](sess session) *Selector[T] {
 }
 
 func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
-	var handler HanderFunc = s.getHandler
-	ms := s.ms
-	for i := len(ms) - 1; i >= 0; i-- {
-		handler = ms[i](handler)
-	}
-	qc := &QueryContext{
+	res := get[T](ctx, s.core, s.sess, &QueryContext{
 		Builder: s,
 		Type:    "SELECT",
-	}
-	res := handler(ctx, qc)
+	})
 	if res.Result != nil {
 		return res.Result.(*T), res.Err
 	}
@@ -134,16 +128,10 @@ func (s *Selector[T]) Get(ctx context.Context) (*T, error) {
 }
 
 func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
-	var handler HanderFunc = s.getMultiHandler
-	ms := s.ms
-	for i := len(ms) - 1; i >= 0; i-- {
-		handler = ms[i](handler)
-	}
-	qc := &QueryContext{
+	res := getMultiHandler[T](ctx, s.core, s.sess, &QueryContext{
 		Builder: s,
 		Type:    "SELECT",
-	}
-	res := handler(ctx, qc)
+	})
 	if res.Result != nil {
 		return res.Result.([]*T), res.Err
 	}
@@ -220,7 +208,7 @@ func (s *Selector[T]) buildColumns() error {
 			if err := s.buildAggregate(val, true); err != nil {
 				return err
 			}
-		case Expr: //  表达式
+		case RawExpr: //  表达式
 			s.sqlBuilder.WriteString(val.raw)
 			if len(val.args) != 0 {
 				s.addArgs(val.args...)
@@ -246,39 +234,6 @@ func Desc(col string) OrderBy { // 逆序
 	return OrderBy{
 		col: col,
 		fun: "DESC",
-	}
-}
-
-func (s *Selector[T]) getHandler(ctx context.Context, qc *QueryContext) *QueryResult {
-	q, err := s.Build()
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	rows, err := s.sess.queryContext(ctx, q.SQL, q.Args...)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	if !rows.Next() {
-		return &QueryResult{
-			Err: sql.ErrNoRows,
-		}
-	}
-	tmpl := new(T)
-	meta, err := s.r.Get(tmpl)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	val := s.valCreator(tmpl, meta)
-	err = val.SetColumns(rows)
-	return &QueryResult{
-		Result: tmpl,
-		Err:    err,
 	}
 }
 

@@ -3,9 +3,12 @@ package morm
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/NotFound1911/morm/internal/valuer"
 	"github.com/NotFound1911/morm/model"
+	"log"
+	"time"
 )
 
 type DBOption func(*DB) error
@@ -14,6 +17,17 @@ type DB struct {
 	core
 }
 
+// Wait 会等待数据库连接
+// 注意只能用于测试
+func (db *DB) Wait() error {
+	err := db.db.Ping()
+	for err == driver.ErrBadConn {
+		log.Printf("等待数据库启动...")
+		err = db.db.Ping()
+		time.Sleep(time.Second)
+	}
+	return err
+}
 func (db *DB) getCore() core {
 	return db.core
 }
