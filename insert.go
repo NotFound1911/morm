@@ -2,7 +2,6 @@ package morm
 
 import (
 	"context"
-	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 	"github.com/NotFound1911/morm/model"
 )
@@ -170,32 +169,6 @@ func (i *Inserter[T]) buildAssignment(a Assignable) error {
 	return nil
 }
 
-func (i *Inserter[T]) Exec(ctx context.Context) sql.Result {
-	var handler HanderFunc = func(ctx context.Context, qc *QueryContext) *QueryResult {
-		q, err := i.Build()
-		if err != nil {
-			return &QueryResult{
-				Err: err,
-			}
-		}
-		res, err := i.sess.execContext(ctx, q.SQL, q.Args...)
-		return &QueryResult{
-			Err:    err,
-			Result: res,
-		}
-	}
-	ms := i.ms
-	for i := len(ms) - 1; i >= 0; i-- {
-		handler = ms[i](handler)
-	}
-	qc := &QueryContext{
-		Builder: i,
-		Type:    "INSERT",
-	}
-	qr := handler(ctx, qc)
-	var res sql.Result
-	if qr.Result != nil {
-		res = qr.Result.(sql.Result)
-	}
-	return Result{err: qr.Err, res: res}
+func (i *Inserter[T]) Exec(ctx context.Context) Result {
+	return exec(ctx, i.sess, i.core, &QueryContext{Builder: i, Type: "INSERT"})
 }

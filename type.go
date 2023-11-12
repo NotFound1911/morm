@@ -5,6 +5,7 @@ import (
 	"database/sql"
 )
 
+// Querier 查询
 type Querier[T any] interface {
 	Get(ctx context.Context) (*T, error)
 	GetMulti(ctx context.Context) ([]*T, error)
