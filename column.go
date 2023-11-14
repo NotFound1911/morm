@@ -1,6 +1,7 @@
 package morm
 
 type Column struct {
+	table TableReference
 	name  string
 	alias string
 }

@@ -3,7 +3,7 @@ package morm
 import (
 	"fmt"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
-	model "github.com/NotFound1911/morm/model"
+	"github.com/NotFound1911/morm/model"
 	"strings"
 )
 
@@ -16,6 +16,7 @@ type builder struct {
 	table   string
 	quoter  byte
 	dialect Dialect
+	core
 }
 
 func (b *builder) quote(name string) {
@@ -39,7 +40,7 @@ func (b *builder) buildExpression(e Expression) error {
 	}
 	switch exp := e.(type) {
 	case Column: // 代表是列名，直接拼接列名
-		return b.buildColumn(exp, false)
+		return b.buildColumn(exp.table, exp.name)
 	case value: // 代表是列名，直接拼接列名
 		b.sqlBuilder.WriteByte('?')
 		b.args = append(b.args, exp.val)
@@ -77,17 +78,46 @@ func (b *builder) buildExpression(e Expression) error {
 	return nil
 }
 
-// 构建列
-func (b *builder) buildColumn(val Column, useAlias bool) error {
-	fd, ok := b.model.FieldMap[val.name]
-	if !ok {
-		return errs.NewErrUnknownField(val.name)
+// buildColumn 构建列
+// 如果 table 没有指定，用 model 来判断列是否存在
+func (b *builder) buildColumn(table TableReference, fd string) error {
+	var alias string
+	if table != nil {
+		alias = table.tableAlias()
 	}
-	b.quote(fd.ColName)
-	if useAlias {
-		b.buildAs(val.alias)
+	if alias != "" {
+		b.quote(alias)
+		b.sqlBuilder.WriteByte('.')
 	}
+	colName, err := b.colName(table, fd)
+	if err != nil {
+		return err
+	}
+	b.quote(colName)
+
 	return nil
+}
+func (b *builder) colName(table TableReference, fd string) (string, error) {
+	switch tab := table.(type) {
+	case nil:
+		fdMeta, ok := b.model.FieldMap[fd]
+		if !ok {
+			return "", errs.NewErrUnknownField(fd)
+		}
+		return fdMeta.ColName, nil
+	case Table:
+		m, err := b.r.Get(tab.entity)
+		if err != nil {
+			return "", err
+		}
+		fdMeta, ok := m.FieldMap[fd]
+		if !ok {
+			return "", errs.NewErrUnknownField(fd)
+		}
+		return fdMeta.ColName, nil
+	default:
+		return "", errs.NewErrUnsupportedExpressionType(tab)
+	}
 }
 
 // 构建聚合

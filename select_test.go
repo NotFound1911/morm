@@ -17,6 +17,114 @@ type TestModel struct {
 	LastName  *sql.NullString
 }
 
+func (t TestModel) tableAlias() string {
+	return t.TableName()
+}
+
+func TestSelector_Join(t *testing.T) {
+	db := memoryDB(t)
+	type Order struct {
+		Id        int
+		UsingCol1 string
+		UsingCol2 string
+	}
+	type OrderDetail struct {
+		OrderId   int
+		ItemId    int
+		UsingCol1 string
+		UsingCol2 string
+	}
+	type Item struct {
+		Id int
+	}
+	testCases := []struct {
+		name      string
+		q         QueryBuilder
+		wantQuery *Query
+		wantErr   error
+	}{
+		{
+			name: "specify table",
+			q:    NewSelector[Order](db).From(TableOf(&OrderDetail{})),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM `order_detail`;",
+			},
+		},
+		{
+			name: "join",
+			q: func() QueryBuilder {
+				t1 := TableOf(&Order{}).As("t1")
+				t2 := TableOf(&OrderDetail{})
+				return NewSelector[Order](db).From(t1.Join(t2).On(t1.C("Id").EQ(t2.C("OrderId"))))
+			}(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM (`order` AS `t1` JOIN `order_detail` ON `t1`.`id` = `order_id`);",
+			},
+		},
+		{
+			name: "multi join",
+			q: func() QueryBuilder {
+				t1 := TableOf(&Order{}).As("t1")
+				t2 := TableOf(&OrderDetail{}).As("t2")
+				t3 := TableOf(&Item{}).As("t3")
+				return NewSelector[Order](db).From(t1.Join(t2).On(t1.C("Id").EQ(t2.C("OrderId"))).
+					Join(t3).On(t2.C("ItemId").EQ(t3.C("Id"))))
+			}(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM ((`order` AS `t1` JOIN `order_detail` AS `t2` ON `t1`.`id` = `t2`.`order_id`) JOIN `item` AS `t3` ON `t2`.`item_id` = `t3`.`id`);",
+			},
+		},
+		{
+			name: "left multi join",
+			q: func() QueryBuilder {
+				t1 := TableOf(&Order{}).As("t1")
+				t2 := TableOf(&OrderDetail{}).As("t2")
+				t3 := TableOf(&Item{}).As("t3")
+				return NewSelector[Order](db).From(t1.LeftJoin(t2).
+					On(t1.C("Id").EQ(t2.C("OrderId"))).
+					LeftJoin(t3).On(t2.C("ItemId").EQ(t3.C("Id"))))
+			}(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM ((`order` AS `t1` LEFT JOIN `order_detail` AS `t2` ON `t1`.`id` = `t2`.`order_id`) LEFT JOIN `item` AS `t3` ON `t2`.`item_id` = `t3`.`id`);",
+			},
+		},
+		{
+			name: "right multi join",
+			q: func() QueryBuilder {
+				t1 := TableOf(&Order{}).As("t1")
+				t2 := TableOf(&OrderDetail{}).As("t2")
+				t3 := TableOf(&Item{}).As("t3")
+				return NewSelector[Order](db).From(t1.RightJoin(t2).On(t1.C("Id").EQ(t2.C("OrderId"))).
+					RightJoin(t3).On(t2.C("ItemId").EQ(t3.C("Id"))))
+			}(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM ((`order` AS `t1` RIGHT JOIN `order_detail` AS `t2` ON `t1`.`id` = `t2`.`order_id`) RIGHT JOIN `item` AS `t3` ON `t2`.`item_id` = `t3`.`id`);",
+			},
+		},
+		{
+			name: "join multiple using",
+			q: func() QueryBuilder {
+				t1 := TableOf(&Order{}).As("t1")
+				t2 := TableOf(&OrderDetail{})
+				return NewSelector[Order](db).From(t1.Join(t2).Using("UsingCol1", "UsingCol2"))
+			}(),
+			wantQuery: &Query{
+				SQL: "SELECT * FROM (`order` AS `t1` JOIN `order_detail` USING (`using_col1`,`using_col2`));",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			query, err := tc.q.Build()
+			assert.Equal(t, tc.wantErr, err)
+			if err != nil {
+				return
+			}
+			assert.Equal(t, tc.wantQuery, query)
+		})
+	}
+}
+
 func (t TestModel) TableName() string {
 	return "test_model"
 }
@@ -37,31 +145,16 @@ func TestSelector_Build(t *testing.T) {
 		},
 		{
 			name: "with from",
-			q:    NewSelector[TestModel](db).From("`test_model_t`"),
-			wantQuery: &Query{
-				SQL: "SELECT * FROM `test_model_t`;",
-			},
-		},
-		{
-			name: "empty from",
-			q:    NewSelector[TestModel](db).From(""),
+			q:    NewSelector[TestModel](db).From(TableOf(&TestModel{})),
 			wantQuery: &Query{
 				SQL: "SELECT * FROM `test_model`;",
 			},
 		},
 		{
-			name: "with db",
-			q:    NewSelector[TestModel](db).From("`test_db`.`test_model`"),
+			name: "empty from",
+			q:    NewSelector[TestModel](db).From(nil),
 			wantQuery: &Query{
-				SQL: "SELECT * FROM `test_db`.`test_model`;",
-			},
-		},
-		{
-			name: "single and simple predicate",
-			q:    NewSelector[TestModel](db).From("`test_model_t`").Where(C("Id").EQ(1)),
-			wantQuery: &Query{
-				SQL:  "SELECT * FROM `test_model_t` WHERE `id` = ?;",
-				Args: []any{1},
+				SQL: "SELECT * FROM `test_model`;",
 			},
 		},
 		{
