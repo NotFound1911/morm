@@ -15,7 +15,7 @@ func TestDeleter_Build(t *testing.T) {
 	}{
 		{
 			name:    "no where",
-			builder: NewDeleter[TestModel](db).From("`test_model`"),
+			builder: NewDeleter[TestModel](db).From(TableOf(&TestModel{})),
 			wantQuery: &Query{
 				SQL: "DELETE FROM `test_model`;",
 			},
@@ -30,7 +30,7 @@ func TestDeleter_Build(t *testing.T) {
 		},
 		{
 			name:    "from",
-			builder: NewDeleter[TestModel](db).From("`test_model`").Where(C("Id").EQ(16)),
+			builder: NewDeleter[TestModel](db).From(TableOf(&TestModel{})).Where(C("Id").EQ(16)),
 			wantQuery: &Query{
 				SQL:  "DELETE FROM `test_model` WHERE `id` = ?;",
 				Args: []any{16},
