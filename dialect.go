@@ -49,7 +49,7 @@ func (m *mysqlDialect) buildUpsert(b *builder, odk *Upsert) error {
 			b.quote(fd.ColName)
 			b.sqlBuilder.WriteByte(')')
 		case Assignment:
-			err := b.buildColumn(assign.Column, false)
+			err := b.buildColumn(nil, assign.name)
 			if err != nil {
 				return err
 			}
@@ -77,7 +77,7 @@ func (s *sqlite3Dialect) buildUpsert(b *builder, odk *Upsert) error {
 			if i > 0 {
 				b.sqlBuilder.WriteByte(',')
 			}
-			if err := b.buildColumn(col, false); err != nil {
+			if err := b.buildColumn(nil, col.name); err != nil {
 				return err
 			}
 		}
@@ -99,7 +99,7 @@ func (s *sqlite3Dialect) buildUpsert(b *builder, odk *Upsert) error {
 			b.quote(fd.ColName)
 
 		case Assignment:
-			err := b.buildColumn(assign.Column, false)
+			err := b.buildColumn(assign.table, assign.name)
 			if err != nil {
 				return err
 			}

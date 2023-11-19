@@ -39,7 +39,6 @@ type Inserter[T any] struct {
 	columns     []string // 指定列
 	onDuplicate *Upsert
 
-	core
 	sess session
 }
 
@@ -53,9 +52,9 @@ func (i *Inserter[T]) OnDuplicateKey() *UpsertBuilder[T] {
 func NewInserter[T any](sess session) *Inserter[T] {
 	c := sess.getCore()
 	return &Inserter[T]{
-		core: c,
 		sess: sess,
 		builder: builder{
+			core:    c,
 			dialect: c.dialect,
 			quoter:  c.dialect.quoter(),
 		},

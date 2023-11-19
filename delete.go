@@ -1,9 +1,9 @@
 package morm
 
+import errs "github.com/NotFound1911/morm/internal/pkg/errors"
+
 type Deleter[T any] struct {
 	builder
-
-	core
 	sess session
 }
 
@@ -17,12 +17,8 @@ func (d *Deleter[T]) Build() (*Query, error) {
 		return nil, err
 	}
 	d.sqlBuilder.WriteString("DELETE FROM ")
-	if d.table == "" {
-		d.sqlBuilder.WriteByte('`')
-		d.sqlBuilder.WriteString(d.model.TableName)
-		d.sqlBuilder.WriteByte('`')
-	} else {
-		d.sqlBuilder.WriteString(d.table)
+	if err = d.buildTable(d.table); err != nil {
+		return nil, err
 	}
 	// 构造where
 	if len(d.where) > 0 {
@@ -37,9 +33,24 @@ func (d *Deleter[T]) Build() (*Query, error) {
 		Args: d.args,
 	}, nil
 }
+func (d *Deleter[T]) buildTable(table TableReference) error {
+	switch tab := table.(type) {
+	case nil:
+		d.quote(d.model.TableName)
+	case Table:
+		model, err := d.r.Get(tab.entity)
+		if err != nil {
+			return err
+		}
+		d.quote(model.TableName)
+	default:
+		return errs.NewErrUnsupportedExpressionType(tab)
+	}
+	return nil
+}
 
 // From accepts model definition
-func (d *Deleter[T]) From(table string) *Deleter[T] {
+func (d *Deleter[T]) From(table TableReference) *Deleter[T] {
 	d.table = table
 	return d
 }
@@ -52,9 +63,9 @@ func (d *Deleter[T]) Where(ps ...Predicate) *Deleter[T] {
 func NewDeleter[T any](sess session) *Deleter[T] {
 	c := sess.getCore()
 	return &Deleter[T]{
-		core: c,
 		sess: sess,
 		builder: builder{
+			core:    c,
 			dialect: c.dialect,
 			quoter:  c.dialect.quoter(),
 		},

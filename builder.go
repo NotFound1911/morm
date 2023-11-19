@@ -1,9 +1,8 @@
 package morm
 
 import (
-	"fmt"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
-	model "github.com/NotFound1911/morm/model"
+	"github.com/NotFound1911/morm/model"
 	"strings"
 )
 
@@ -13,15 +12,22 @@ type builder struct {
 	model      *model.Model
 	where      []Predicate
 
-	table   string
+	table   TableReference // todo builder
 	quoter  byte
 	dialect Dialect
+	core
 }
 
 func (b *builder) quote(name string) {
 	b.sqlBuilder.WriteByte(b.quoter)
 	b.sqlBuilder.WriteString(name)
 	b.sqlBuilder.WriteByte(b.quoter)
+}
+func (b *builder) raw(r RawExpr) {
+	b.sqlBuilder.WriteString(r.raw)
+	if len(r.args) != 0 {
+		b.addArgs(r.args...)
+	}
 }
 func (b *builder) buildPredicates(ps []Predicate) error {
 	p := ps[0]
@@ -39,55 +45,133 @@ func (b *builder) buildExpression(e Expression) error {
 	}
 	switch exp := e.(type) {
 	case Column: // 代表是列名，直接拼接列名
-		return b.buildColumn(exp, false)
+		return b.buildColumn(exp.table, exp.name)
 	case value: // 代表是列名，直接拼接列名
 		b.sqlBuilder.WriteByte('?')
 		b.args = append(b.args, exp.val)
+	case RawExpr:
+		b.raw(exp)
+	case MathExpr:
+		return b.buildBinaryExpr(binaryExpr(exp))
+	case Subquery:
+		return b.buildSubquery(exp, false)
+	case SubqueryExpr:
+		b.sqlBuilder.WriteString(exp.pred)
+		b.sqlBuilder.WriteByte(' ')
+		return b.buildSubquery(exp.s, false)
 	case Predicate: // 代表查询条件
-		_, lp := exp.left.(Predicate) // 判断是否是查询条件
-		if lp {
-			b.sqlBuilder.WriteByte('(')
-		}
-		// 递归
-		if err := b.buildExpression(exp.left); err != nil {
-			return err
-		}
-		if lp {
-			b.sqlBuilder.WriteByte(')')
-		}
-		b.sqlBuilder.WriteByte(' ')
-		b.sqlBuilder.WriteString(exp.opt.String())
-		b.sqlBuilder.WriteByte(' ')
-
-		_, rp := exp.right.(Predicate)
-		if rp {
-			b.sqlBuilder.WriteByte('(')
-		}
-		if err := b.buildExpression(exp.right); err != nil {
-			return err
-		}
-		if rp {
-			b.sqlBuilder.WriteByte(')')
-		}
+		return b.buildBinaryExpr(binaryExpr(exp))
 	case Aggregate:
 		return b.buildAggregate(exp, false)
 	default:
-		return fmt.Errorf("orm: not support the expression %v", exp)
+		return errs.NewErrUnsupportedExpressionType(exp)
+	}
+	return nil
+}
+func (b *builder) buildBinaryExpr(e binaryExpr) error {
+	err := b.buildSubExpr(e.left)
+	if err != nil {
+		return err
+	}
+	if e.opt != "" {
+		b.sqlBuilder.WriteByte(' ')
+		b.sqlBuilder.WriteString(e.opt.String())
+	}
+	if e.right != nil {
+		b.sqlBuilder.WriteByte(' ')
+		return b.buildSubExpr(e.right)
+	}
+	return nil
+}
+func (b *builder) buildSubExpr(subExpr Expression) error {
+	switch sub := subExpr.(type) {
+	case MathExpr:
+
+	case binaryExpr:
+	case Predicate:
+		_ = b.sqlBuilder.WriteByte('(')
+		if err := b.buildBinaryExpr(binaryExpr(sub)); err != nil {
+			return err
+		}
+		_ = b.sqlBuilder.WriteByte(')')
+	default:
+		if err := b.buildExpression(sub); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func (b *builder) buildSubquery(table Subquery, useAlias bool) error {
+	q, err := table.s.Build()
+	if err != nil {
+		return err
+	}
+	b.sqlBuilder.WriteByte('(')
+	b.sqlBuilder.WriteString(q.SQL[:len(q.SQL)-1]) // 去掉;
+	if len(q.Args) > 0 {
+		b.addArgs(q.Args...)
+	}
+	b.sqlBuilder.WriteByte(')')
+	if useAlias {
+		b.sqlBuilder.WriteString(" AS ")
+		b.quote(table.alias)
 	}
 	return nil
 }
 
-// 构建列
-func (b *builder) buildColumn(val Column, useAlias bool) error {
-	fd, ok := b.model.FieldMap[val.name]
-	if !ok {
-		return errs.NewErrUnknownField(val.name)
+// buildColumn 构建列
+// 如果 table 没有指定，用 model 来判断列是否存在
+func (b *builder) buildColumn(table TableReference, fd string) error {
+	var alias string
+	if table != nil {
+		alias = table.tableAlias()
 	}
-	b.quote(fd.ColName)
-	if useAlias {
-		b.buildAs(val.alias)
+	if alias != "" {
+		b.quote(alias)
+		b.sqlBuilder.WriteByte('.')
 	}
+	colName, err := b.colName(table, fd)
+	if err != nil {
+		return err
+	}
+	b.quote(colName)
+
 	return nil
+}
+func (b *builder) colName(table TableReference, fd string) (string, error) {
+	switch tab := table.(type) {
+	case nil:
+		fdMeta, ok := b.model.FieldMap[fd]
+		if !ok {
+			return "", errs.NewErrUnknownField(fd)
+		}
+		return fdMeta.ColName, nil
+	case Table:
+		m, err := b.r.Get(tab.entity)
+		if err != nil {
+			return "", err
+		}
+		fdMeta, ok := m.FieldMap[fd]
+		if !ok {
+			return "", errs.NewErrUnknownField(fd)
+		}
+		return fdMeta.ColName, nil
+	case Subquery:
+		if len(tab.columns) > 0 {
+			for _, col := range tab.columns {
+				if col.selectedAlias() == fd {
+					return fd, nil
+				}
+				if col.fieldName() == fd {
+					return b.colName(col.target(), fd)
+				}
+			}
+			return "", errs.NewErrUnknownField(fd)
+		}
+		return b.colName(tab.table, fd)
+	default:
+		return "", errs.NewErrUnsupportedExpressionType(tab)
+	}
 }
 
 // 构建聚合

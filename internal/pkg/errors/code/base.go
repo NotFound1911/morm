@@ -35,4 +35,7 @@ const (
 
 	// ErrTxCommitFailed 事务提交错误
 	ErrTxCommitFailed
+
+	// ErrNoUpdatedColumns 没有更新的列
+	ErrNoUpdatedColumns
 )

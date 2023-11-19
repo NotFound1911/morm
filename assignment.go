@@ -7,7 +7,7 @@ type Assignable interface {
 }
 type Assignment struct {
 	Column
-	val any
+	val Expression
 }
 
 func (a Assignment) assign() {
@@ -15,10 +15,14 @@ func (a Assignment) assign() {
 }
 
 func Assign(column string, val any) Assignment {
+	v, ok := val.(Expression)
+	if !ok {
+		v = value{val: val}
+	}
 	return Assignment{
 		Column: Column{
 			name: column,
 		},
-		val: val,
+		val: v,
 	}
 }

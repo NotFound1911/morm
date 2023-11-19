@@ -1,13 +1,28 @@
 package morm
 
 type Column struct {
+	table TableReference
 	name  string
 	alias string
 }
 
-func (c Column) assign() {}
-func (c Column) selectable() {
+func (c Column) fieldName() string {
+	return c.name
 }
+
+func (c Column) target() TableReference {
+	return c.table
+}
+
+func (c Column) selectedAlias() string {
+	return c.alias
+}
+
+func (c Column) tableAlias() string {
+	return c.alias
+}
+
+func (c Column) assign() {}
 
 func (c Column) As(alias string) Column {
 	return Column{
@@ -40,6 +55,25 @@ func C(name string) Column {
 	}
 }
 
+func (c Column) Add(delta int) MathExpr {
+	return MathExpr{
+		left: c,
+		opt:  optADD,
+		right: value{
+			val: delta,
+		},
+	}
+}
+func (c Column) Multi(delta int) MathExpr {
+	return MathExpr{
+		left: c,
+		opt:  optMULTI,
+		right: value{
+			val: delta,
+		},
+	}
+}
+
 //  对应列的方法，= < >
 
 // EQ C("id").EQ(12)
@@ -62,5 +96,14 @@ func (c Column) GT(arg any) Predicate { // > 大于
 		left:  c,
 		opt:   optGT,
 		right: exprOf(arg),
+	}
+}
+
+// InQuery 一种是 IN 子查询, 另外一种就是普通的值
+func (c Column) InQuery(sub Subquery) Predicate {
+	return Predicate{
+		left:  c,
+		opt:   optIN,
+		right: sub,
 	}
 }

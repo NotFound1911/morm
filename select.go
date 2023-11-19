@@ -2,7 +2,6 @@ package morm
 
 import (
 	"context"
-	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 )
 
@@ -16,7 +15,6 @@ type Selector[T any] struct {
 	having   []Predicate
 	columns  []Selectable
 
-	core
 	sess session
 }
 
@@ -24,7 +22,8 @@ func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
 	s.columns = cols
 	return s
 }
-func (s *Selector[T]) From(table string) *Selector[T] {
+
+func (s *Selector[T]) From(table TableReference) *Selector[T] {
 	s.table = table
 	return s
 }
@@ -44,12 +43,8 @@ func (s *Selector[T]) Build() (*Query, error) {
 		return nil, err
 	}
 	s.sqlBuilder.WriteString(" FROM ")
-	if s.table == "" {
-		s.sqlBuilder.WriteByte('`')
-		s.sqlBuilder.WriteString(s.model.TableName)
-		s.sqlBuilder.WriteByte('`')
-	} else {
-		s.sqlBuilder.WriteString(s.table)
+	if err = s.buildTable(s.table); err != nil {
+		return nil, err
 	}
 	// 构造where
 	if len(s.where) > 0 {
@@ -99,6 +94,71 @@ func (s *Selector[T]) Build() (*Query, error) {
 	}, nil
 }
 
+func (s *Selector[T]) buildTable(table TableReference) error {
+	switch tab := table.(type) {
+	case nil:
+		s.quote(s.model.TableName)
+	case Table:
+		model, err := s.r.Get(tab.entity)
+		if err != nil {
+			return err
+		}
+		s.quote(model.TableName)
+		if tab.alias != "" {
+			s.sqlBuilder.WriteString(" AS ")
+			s.quote(tab.alias)
+		}
+	case Join:
+		return s.buildJoin(tab)
+	case Subquery:
+		return s.buildSubquery(tab, true)
+	default:
+		return errs.NewErrUnsupportedExpressionType(tab)
+	}
+	return nil
+}
+func (s *Selector[T]) buildColumn(c Column, useAlias bool) error {
+	if err := s.builder.buildColumn(c.table, c.name); err != nil {
+		return err
+	}
+	if useAlias {
+		s.buildAs(c.alias)
+	}
+	return nil
+}
+func (s *Selector[T]) buildJoin(table Join) error {
+	s.sqlBuilder.WriteByte('(')
+	if err := s.buildTable(table.left); err != nil {
+		return err
+	}
+	s.sqlBuilder.WriteString(" ")
+	s.sqlBuilder.WriteString(table.typ)
+	s.sqlBuilder.WriteString(" ")
+	if err := s.buildTable(table.right); err != nil {
+		return err
+	}
+	if len(table.using) > 0 {
+		s.sqlBuilder.WriteString(" USING (")
+		for i, col := range table.using {
+			if i > 0 {
+				s.sqlBuilder.WriteByte(',')
+			}
+			if err := s.buildColumn(Column{name: col}, false); err != nil {
+				return err
+			}
+		}
+		s.sqlBuilder.WriteString(")")
+	}
+	if len(table.on) > 0 {
+		s.sqlBuilder.WriteString(" ON ")
+		if err := s.buildPredicates(table.on); err != nil {
+			return err
+		}
+	}
+	s.sqlBuilder.WriteByte(')')
+	return nil
+}
+
 func (s *Selector[T]) Where(ps ...Predicate) *Selector[T] {
 	s.where = ps
 	return s
@@ -107,9 +167,9 @@ func (s *Selector[T]) Where(ps ...Predicate) *Selector[T] {
 func NewSelector[T any](sess session) *Selector[T] {
 	c := sess.getCore()
 	return &Selector[T]{
-		core: c,
 		sess: sess,
 		builder: builder{
+			core:    c,
 			dialect: c.dialect,
 			quoter:  c.dialect.quoter(),
 		},
@@ -139,7 +199,9 @@ func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
 }
 
 type Selectable interface {
-	selectable()
+	selectedAlias() string
+	fieldName() string
+	target() TableReference
 }
 
 // GroupBy 设置 group by 子句
@@ -237,44 +299,15 @@ func Desc(col string) OrderBy { // 逆序
 	}
 }
 
-func (s *Selector[T]) getMultiHandler(ctx context.Context, qc *QueryContext) *QueryResult {
-	q, err := s.Build()
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
+func (s *Selector[T]) AsSubquery(alias string) Subquery {
+	table := s.table
+	if table == nil {
+		table = TableOf(new(T))
 	}
-	rows, err := s.sess.queryContext(ctx, q.SQL, q.Args...)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	tmpls := make([]*T, 0, 0)
-	tmpl := new(T)
-	meta, err := s.r.Get(tmpl)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	for rows.Next() {
-		tmpl := new(T)
-		val := s.valCreator(tmpl, meta)
-		if err := val.SetColumns(rows); err != nil {
-			return &QueryResult{
-				Err: err,
-			}
-		}
-		tmpls = append(tmpls, tmpl)
-	}
-	if len(tmpls) == 0 {
-		return &QueryResult{
-			Err: sql.ErrNoRows,
-		}
-	}
-	return &QueryResult{
-		Result: tmpls,
-		Err:    err,
+	return Subquery{
+		s:       s,
+		alias:   alias,
+		table:   table,
+		columns: s.columns,
 	}
 }

@@ -5,10 +5,21 @@ type Aggregate struct {
 	fn    string // 函数
 	arg   string // 参数
 	alias string // 别名
+	table TableReference
 }
 
-func (a Aggregate) selectable() {
+func (a Aggregate) fieldName() string {
+	return a.arg
 }
+
+func (a Aggregate) target() TableReference {
+	return a.table
+}
+
+func (a Aggregate) selectedAlias() string {
+	return a.alias
+}
+
 func (Aggregate) expr() {}
 
 func (a Aggregate) As(alias string) Aggregate {
