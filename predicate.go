@@ -4,12 +4,16 @@ package morm
 type opt string
 
 const (
-	optEQ  = "="
-	optLT  = "<"
-	optGT  = ">"
-	optAND = "AND"
-	optOR  = "OR"
-	optNOT = "NOT"
+	optEQ    = "="
+	optLT    = "<"
+	optGT    = ">"
+	optAND   = "AND"
+	optOR    = "OR"
+	optNOT   = "NOT"
+	optADD   = "+"
+	optMULTI = "*"
+	optIN    = "IN"
+	optEXIST = "EXIST"
 )
 
 func (o opt) String() string {
@@ -40,6 +44,12 @@ var _ Expression = &Predicate{}
 
 func (Predicate) expr() {
 
+}
+func Exist(sub Subquery) Predicate {
+	return Predicate{
+		opt:   optEXIST,
+		right: sub,
+	}
 }
 
 // Not Not(查询条件 p)

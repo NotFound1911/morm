@@ -115,3 +115,48 @@ func (j *JoinBuilder) Using(cs ...string) Join {
 		typ:   j.typ,
 	}
 }
+
+// Subquery 子查询
+type Subquery struct {
+	// 使用 QueryBuilder 仅仅是为了让 Subquery 可以是非泛型的
+	s       QueryBuilder
+	columns []Selectable
+	alias   string
+	table   TableReference
+}
+
+func (s Subquery) tableAlias() string {
+	return s.alias
+}
+
+func (s Subquery) expr() {
+}
+
+func (s Subquery) Join(target TableReference) *JoinBuilder {
+	return &JoinBuilder{
+		left:  s,
+		right: target,
+		typ:   "JOIN",
+	}
+}
+
+func (s Subquery) LeftJoin(target TableReference) *JoinBuilder {
+	return &JoinBuilder{
+		left:  s,
+		right: target,
+		typ:   "LEFT JOIN",
+	}
+}
+func (s Subquery) RightJoin(target TableReference) *JoinBuilder {
+	return &JoinBuilder{
+		left:  s,
+		right: target,
+		typ:   "RIGHT JOIN",
+	}
+}
+func (s Subquery) C(name string) Column {
+	return Column{
+		table: s,
+		name:  name,
+	}
+}

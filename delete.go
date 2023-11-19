@@ -2,9 +2,8 @@ package morm
 
 type Deleter[T any] struct {
 	builder
-
-	core
-	sess session
+	table string
+	sess  session
 }
 
 func (d *Deleter[T]) Build() (*Query, error) {
@@ -52,9 +51,9 @@ func (d *Deleter[T]) Where(ps ...Predicate) *Deleter[T] {
 func NewDeleter[T any](sess session) *Deleter[T] {
 	c := sess.getCore()
 	return &Deleter[T]{
-		core: c,
 		sess: sess,
 		builder: builder{
+			core:    c,
 			dialect: c.dialect,
 			quoter:  c.dialect.quoter(),
 		},

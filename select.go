@@ -2,7 +2,6 @@ package morm
 
 import (
 	"context"
-	"database/sql"
 	errs "github.com/NotFound1911/morm/internal/pkg/errors"
 )
 
@@ -16,8 +15,7 @@ type Selector[T any] struct {
 	having   []Predicate
 	columns  []Selectable
 
-	sess  session
-	table TableReference // todo builder
+	sess session
 }
 
 func (s *Selector[T]) Select(cols ...Selectable) *Selector[T] {
@@ -112,6 +110,8 @@ func (s *Selector[T]) buildTable(table TableReference) error {
 		}
 	case Join:
 		return s.buildJoin(tab)
+	case Subquery:
+		return s.buildSubquery(tab, true)
 	default:
 		return errs.NewErrUnsupportedExpressionType(tab)
 	}
@@ -199,7 +199,9 @@ func (s *Selector[T]) GetMulti(ctx context.Context) ([]*T, error) {
 }
 
 type Selectable interface {
-	selectable()
+	selectedAlias() string
+	fieldName() string
+	target() TableReference
 }
 
 // GroupBy 设置 group by 子句
@@ -297,44 +299,15 @@ func Desc(col string) OrderBy { // 逆序
 	}
 }
 
-func (s *Selector[T]) getMultiHandler(ctx context.Context, qc *QueryContext) *QueryResult {
-	q, err := s.Build()
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
+func (s *Selector[T]) AsSubquery(alias string) Subquery {
+	table := s.table
+	if table == nil {
+		table = TableOf(new(T))
 	}
-	rows, err := s.sess.queryContext(ctx, q.SQL, q.Args...)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	tmpls := make([]*T, 0, 0)
-	tmpl := new(T)
-	meta, err := s.r.Get(tmpl)
-	if err != nil {
-		return &QueryResult{
-			Err: err,
-		}
-	}
-	for rows.Next() {
-		tmpl := new(T)
-		val := s.valCreator(tmpl, meta)
-		if err := val.SetColumns(rows); err != nil {
-			return &QueryResult{
-				Err: err,
-			}
-		}
-		tmpls = append(tmpls, tmpl)
-	}
-	if len(tmpls) == 0 {
-		return &QueryResult{
-			Err: sql.ErrNoRows,
-		}
-	}
-	return &QueryResult{
-		Result: tmpls,
-		Err:    err,
+	return Subquery{
+		s:       s,
+		alias:   alias,
+		table:   table,
+		columns: s.columns,
 	}
 }

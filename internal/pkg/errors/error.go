@@ -60,3 +60,6 @@ func NewErrTxRollbackFailed(exp any) error {
 func NewErrTxCommitFailed(exp any) error {
 	return WithCode(code.ErrTxCommitFailed, fmt.Sprintf("morm 事务提交失败:%+v", exp))
 }
+func NewErrNoUpdatedColumns() error {
+	return WithCode(code.ErrNoUpdatedColumns, fmt.Sprintf("morm 没有更新的列"))
+}

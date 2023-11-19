@@ -96,7 +96,7 @@ func TestInserter_Build(t *testing.T) {
 			wantQuerry: &Query{
 				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
 					"ON DUPLICATE KEY UPDATE `first_name`=?;",
-				Args: []any{int64(1), "test", int8(19), &sql.NullString{String: "do", Valid: true}, "practice"},
+				Args: []any{int64(1), "test", int8(19), &sql.NullString{String: "do", Valid: true}, value{val: "practice"}},
 			},
 		},
 		{
@@ -166,7 +166,7 @@ func TestUpsert_SQLite3_Build(t *testing.T) {
 			wantQuery: &Query{
 				SQL: "INSERT INTO `test_model`(`id`,`first_name`,`age`,`last_name`) VALUES(?,?,?,?) " +
 					"ON CONFLICT(`id`) DO UPDATE SET `first_name`=?;",
-				Args: []any{int64(1), "test", int8(19), &sql.NullString{String: "do", Valid: true}, "practice"},
+				Args: []any{int64(1), "test", int8(19), &sql.NullString{String: "do", Valid: true}, value{val: "practice"}},
 			},
 		},
 		{
