@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	errs "github.com/NotFound1911/morm/internal/pkg/errors"
+	"github.com/NotFound1911/morm/errors"
 	"github.com/NotFound1911/morm/internal/valuer"
 	"github.com/NotFound1911/morm/model"
 	"log"
