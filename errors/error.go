@@ -2,7 +2,7 @@ package errs
 
 import (
 	"fmt"
-	"github.com/NotFound1911/morm/internal/pkg/errors/code"
+	"github.com/NotFound1911/morm/errors/code"
 )
 
 type withCode struct {

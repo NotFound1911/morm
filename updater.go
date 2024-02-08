@@ -2,7 +2,7 @@ package morm
 
 import (
 	"context"
-	errs "github.com/NotFound1911/morm/internal/pkg/errors"
+	"github.com/NotFound1911/morm/errors"
 	"reflect"
 )
 

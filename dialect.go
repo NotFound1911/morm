@@ -1,6 +1,8 @@
 package morm
 
-import errs "github.com/NotFound1911/morm/internal/pkg/errors"
+import (
+	"github.com/NotFound1911/morm/errors"
+)
 
 var (
 	MySQL   Dialect = &mysqlDialect{}
